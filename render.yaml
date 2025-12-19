@@ -38,11 +38,8 @@ services:
   # Redis Cache
   - type: redis
     name: mobilizer-redis
-    plan: starter
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: Allow all (internal Render services)
+    plan: free
+    ipAllowList: []
 
 databases:
   # PostgreSQL Database
