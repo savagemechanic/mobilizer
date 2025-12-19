@@ -5,13 +5,11 @@ services:
   # NestJS GraphQL API
   - type: web
     name: mobilizer-backend
-    env: node
-    region: oregon
+    runtime: node
     plan: free
-    rootDir: apps/backend
-    buildCommand: cd ../.. && yarn install && turbo run build --filter=mobilizer-backend && cd apps/backend && npx prisma generate && npx prisma migrate deploy
-    startCommand: node dist/main.js
-    healthCheckPath: /
+    branch: main
+    buildCommand: yarn install && turbo run build --filter=mobilizer-backend && cd apps/backend && npx prisma generate && npx prisma migrate deploy
+    startCommand: cd apps/backend && node dist/main.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -41,7 +39,6 @@ services:
   - type: redis
     name: mobilizer-redis
     plan: free
-    ipAllowList: []
 
 databases:
   # PostgreSQL Database
