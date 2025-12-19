@@ -54,3 +54,5 @@ temp/
 # Logs
 logs/
 *.log
+.vercel
+.env*.local
