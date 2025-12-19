@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "yarn workspace @mobilizer/web build",
+  "devCommand": "yarn workspace @mobilizer/web dev",
+  "installCommand": "yarn install",
+  "framework": "nextjs",
+  "outputDirectory": "apps/web/.next",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./apps/web"
+}

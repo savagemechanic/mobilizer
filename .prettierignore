@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production builds
+dist/
+build/
+.next/
+out/
+
+# Turborepo cache
+.turbo/
+
+# Coverage
+coverage/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Lock files
+yarn.lock
+package-lock.json
+pnpm-lock.yaml

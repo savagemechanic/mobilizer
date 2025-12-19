@@ -1,0 +1,869 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum OrgLevel {
+  NATIONAL
+  STATE
+  LGA
+  WARD
+  POLLING_UNIT
+}
+
+enum PostType {
+  TEXT
+  IMAGE
+  VIDEO
+  POLL
+}
+
+enum EventType {
+  MEETING
+  RALLY
+  TOWN_HALL
+  WEBINAR
+  WORKSHOP
+  OTHER
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum NotificationType {
+  POST_LIKE
+  POST_COMMENT
+  POST_MENTION
+  EVENT_INVITE
+  EVENT_REMINDER
+  MEMBERSHIP_APPROVED
+  MEMBERSHIP_REJECTED
+  NEW_FOLLOWER
+  MESSAGE_RECEIVED
+  SYSTEM
+}
+
+enum WalletStatus {
+  ACTIVE
+  SUSPENDED
+  FROZEN
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  PASSWORD_CHANGE
+  EMAIL_VERIFY
+  PERMISSION_GRANT
+  PERMISSION_REVOKE
+  MOVEMENT_CREATE
+  MOVEMENT_UPDATE
+  MOVEMENT_DELETE
+  SUPER_ADMIN_ASSIGN
+  SUPER_ADMIN_REVOKE
+  PLATFORM_ADMIN_GRANT
+  PLATFORM_ADMIN_REVOKE
+}
+
+enum LeaderLevel {
+  STATE
+  LGA
+  WARD
+  POLLING_UNIT
+}
+
+// ============================================
+// USER & AUTH MODELS
+// ============================================
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  phoneNumber       String?   @unique
+  password          String
+  firstName         String
+  lastName          String
+  middleName        String?
+  displayName       String?
+  avatar            String?
+  bio               String?
+  gender            Gender?
+  dateOfBirth       DateTime?
+  isEmailVerified   Boolean   @default(false)
+  isPhoneVerified   Boolean   @default(false)
+  emailVerifyToken  String?
+  phoneVerifyToken  String?
+  resetPasswordToken String?
+  resetPasswordExpires DateTime?
+  lastLoginAt       DateTime?
+  isActive          Boolean   @default(true)
+  isSuspended       Boolean   @default(false)
+  suspendedAt       DateTime?
+  suspendedReason   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Location
+  countryId         String?
+  stateId           String?
+  lgaId             String?
+  wardId            String?
+  pollingUnitId     String?
+  address           String?
+
+  // Relations
+  country           Country?      @relation(fields: [countryId], references: [id])
+  state             State?        @relation(fields: [stateId], references: [id])
+  lga               LGA?          @relation(fields: [lgaId], references: [id])
+  ward              Ward?         @relation(fields: [wardId], references: [id])
+  pollingUnit       PollingUnit?  @relation(fields: [pollingUnitId], references: [id])
+
+  // User relationships
+  memberships       OrgMembership[]
+  posts             Post[]
+  comments          Comment[]
+  likes             Like[]
+  pollVotes         PollVote[]
+  eventsCreated     Event[]           @relation("EventCreator")
+  eventRSVPs        EventRSVP[]
+  conversations     Participant[]
+  messagesSent      Message[]
+  readReceipts      ReadReceipt[]
+  notifications     Notification[]
+  roles             UserRole[]
+  refreshTokens     RefreshToken[]
+  deviceTokens      DeviceToken[]
+  auditLogs         AuditLog[]
+  wallet            Wallet?
+
+  // Social features
+  following         Follow[]          @relation("Follower")
+  followers         Follow[]          @relation("Following")
+
+  // Movement admin relationships
+  movementAdmins    MovementAdmin[]   // Movements where user is Super Admin
+
+  // Platform Admin flag (God Mode - can manage all movements)
+  isPlatformAdmin   Boolean           @default(false)
+
+  @@index([email])
+  @@index([phoneNumber])
+  @@index([isActive])
+  @@map("users")
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String
+  platform  String   // ios, android, web
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+// ============================================
+// MOVEMENT MODEL (Top-level container for Support Groups)
+// ============================================
+
+model Movement {
+  id              String    @id @default(uuid())
+  name            String
+  slug            String    @unique
+  description     String?
+  logo            String?
+  banner          String?
+  website         String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdById     String?   // Platform Admin who created this
+
+  // Relations
+  supportGroups   Organization[]
+  superAdmins     MovementAdmin[]  // Super Admins assigned to this movement
+  wallet          MovementWallet?
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("movements")
+}
+
+// Junction table for Movement Super Admins
+model MovementAdmin {
+  id          String    @id @default(uuid())
+  movementId  String
+  userId      String
+  assignedAt  DateTime  @default(now())
+  assignedBy  String?   // Platform Admin who assigned
+
+  movement    Movement  @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([movementId, userId])
+  @@index([movementId])
+  @@index([userId])
+  @@map("movement_admins")
+}
+
+// Movement-level wallet (separate from user wallets)
+model MovementWallet {
+  id             String        @id @default(uuid())
+  movementId     String        @unique
+  balance        Decimal       @default(0) @db.Decimal(15, 2)
+  ledgerBalance  Decimal       @default(0) @db.Decimal(15, 2)
+  status         WalletStatus  @default(ACTIVE)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  movement       Movement      @relation(fields: [movementId], references: [id], onDelete: Cascade)
+
+  @@index([movementId])
+  @@map("movement_wallets")
+}
+
+// ============================================
+// ORGANIZATION MODELS (Support Groups)
+// ============================================
+
+model Organization {
+  id              String    @id @default(uuid())
+  name            String
+  slug            String    @unique
+  description     String?
+  logo            String?
+  banner          String?
+  level           OrgLevel
+  isVerified      Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  memberCount     Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Movement relationship (required - every support group belongs to a movement)
+  movementId      String
+  movement        Movement   @relation(fields: [movementId], references: [id], onDelete: Cascade)
+
+  // Hierarchy within the movement
+  parentId        String?
+  parent          Organization?  @relation("OrgHierarchy", fields: [parentId], references: [id])
+  children        Organization[] @relation("OrgHierarchy")
+
+  // Location
+  countryId       String?
+  stateId         String?
+  lgaId           String?
+  wardId          String?
+  pollingUnitId   String?
+
+  country         Country?      @relation(fields: [countryId], references: [id])
+  state           State?        @relation(fields: [stateId], references: [id])
+  lga             LGA?          @relation(fields: [lgaId], references: [id])
+  ward            Ward?         @relation(fields: [wardId], references: [id])
+  pollingUnit     PollingUnit?  @relation(fields: [pollingUnitId], references: [id])
+
+  // Relations
+  memberships     OrgMembership[]
+  posts           Post[]
+  events          Event[]
+
+  @@index([slug])
+  @@index([level])
+  @@index([movementId])
+  @@index([parentId])
+  @@index([isActive])
+  @@map("organizations")
+}
+
+model OrgMembership {
+  id             String    @id @default(uuid())
+  userId         String
+  orgId          String
+  roleId         String?
+  isAdmin        Boolean   @default(false)
+  joinedAt       DateTime  @default(now())
+  approvedAt     DateTime?
+  approvedBy     String?
+  isActive       Boolean   @default(true)
+
+  // Leader fields
+  isLeader           Boolean      @default(false)
+  leaderLevel        LeaderLevel?
+  leaderStateId      String?
+  leaderLgaId        String?
+  leaderWardId       String?
+  leaderPollingUnitId String?
+  leaderAssignedAt   DateTime?
+  leaderAssignedBy   String?
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  role           Role?        @relation(fields: [roleId], references: [id])
+
+  // Location relations for leader assignments
+  leaderState       State?       @relation("LeaderState", fields: [leaderStateId], references: [id])
+  leaderLga         LGA?         @relation("LeaderLGA", fields: [leaderLgaId], references: [id])
+  leaderWard        Ward?        @relation("LeaderWard", fields: [leaderWardId], references: [id])
+  leaderPollingUnit PollingUnit? @relation("LeaderPollingUnit", fields: [leaderPollingUnitId], references: [id])
+
+  @@unique([userId, orgId])
+  @@index([userId])
+  @@index([orgId])
+  @@index([isActive])
+  @@index([isLeader])
+  @@map("org_memberships")
+}
+
+// ============================================
+// POST MODELS
+// ============================================
+
+model Post {
+  id             String    @id @default(uuid())
+  authorId       String
+  orgId          String?
+  content        String
+  type           PostType  @default(TEXT)
+  mediaUrls      String[]  @default([])
+  isPublished    Boolean   @default(true)
+  isPinned       Boolean   @default(false)
+  viewCount      Int       @default(0)
+  likeCount      Int       @default(0)
+  commentCount   Int       @default(0)
+  shareCount     Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  author         User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [orgId], references: [id])
+
+  poll           Poll?
+  comments       Comment[]
+  likes          Like[]
+
+  @@index([authorId])
+  @@index([orgId])
+  @@index([createdAt])
+  @@index([isPublished])
+  @@map("posts")
+}
+
+model Poll {
+  id             String    @id @default(uuid())
+  postId         String    @unique
+  question       String
+  endsAt         DateTime?
+  allowMultiple  Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+
+  post           Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  options        PollOption[]
+  votes          PollVote[]
+
+  @@map("polls")
+}
+
+model PollOption {
+  id        String     @id @default(uuid())
+  pollId    String
+  text      String
+  voteCount Int        @default(0)
+  createdAt DateTime   @default(now())
+
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes     PollVote[]
+
+  @@index([pollId])
+  @@map("poll_options")
+}
+
+model PollVote {
+  id        String   @id @default(uuid())
+  pollId    String
+  optionId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, optionId, userId])
+  @@index([pollId])
+  @@index([userId])
+  @@map("poll_votes")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  postId    String
+  authorId  String
+  content   String
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+
+  @@index([postId])
+  @@index([authorId])
+  @@index([parentId])
+  @@map("comments")
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+  @@map("likes")
+}
+
+// ============================================
+// EVENT MODELS
+// ============================================
+
+model Event {
+  id             String    @id @default(uuid())
+  title          String
+  description    String
+  type           EventType
+  startTime      DateTime
+  endTime        DateTime?
+  location       String?
+  virtualLink    String?
+  isVirtual      Boolean   @default(false)
+  banner         String?
+  maxAttendees   Int?
+  creatorId      String
+  orgId          String?
+  isPublished    Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  creator        User          @relation("EventCreator", fields: [creatorId], references: [id])
+  organization   Organization? @relation(fields: [orgId], references: [id])
+  rsvps          EventRSVP[]
+
+  @@index([creatorId])
+  @@index([orgId])
+  @@index([startTime])
+  @@index([isPublished])
+  @@map("events")
+}
+
+model EventRSVP {
+  id         String   @id @default(uuid())
+  eventId    String
+  userId     String
+  status     String   @default("GOING") // GOING, MAYBE, NOT_GOING
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+  @@map("event_rsvps")
+}
+
+// ============================================
+// CHAT MODELS
+// ============================================
+
+model Conversation {
+  id          String            @id @default(uuid())
+  type        ConversationType  @default(DIRECT)
+  name        String?
+  avatar      String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  participants Participant[]
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model Participant {
+  id              String       @id @default(uuid())
+  conversationId  String
+  userId          String
+  joinedAt        DateTime     @default(now())
+  leftAt          DateTime?
+  lastReadAt      DateTime?
+
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([conversationId])
+  @@index([userId])
+  @@map("participants")
+}
+
+model Message {
+  id              String        @id @default(uuid())
+  conversationId  String
+  senderId        String
+  type            MessageType   @default(TEXT)
+  content         String?
+  mediaUrl        String?
+  status          MessageStatus @default(SENT)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  conversation    Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender          User            @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  readReceipts    ReadReceipt[]
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model ReadReceipt {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+  @@map("read_receipts")
+}
+
+// ============================================
+// NOTIFICATION MODEL
+// ============================================
+
+model Notification {
+  id          String            @id @default(uuid())
+  userId      String
+  type        NotificationType
+  title       String
+  message     String
+  data        Json?
+  isRead      Boolean           @default(false)
+  readAt      DateTime?
+  createdAt   DateTime          @default(now())
+
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ============================================
+// ROLE & PERMISSION MODELS
+// ============================================
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  permissions String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles     UserRole[]
+  orgMemberships OrgMembership[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// ============================================
+// AUDIT LOG MODEL
+// ============================================
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  userId      String?
+  action      AuditAction
+  entityType  String
+  entityId    String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================
+// WALLET & TRANSACTION MODELS
+// ============================================
+
+model Wallet {
+  id             String        @id @default(uuid())
+  userId         String        @unique
+  balance        Decimal       @default(0) @db.Decimal(15, 2)
+  ledgerBalance  Decimal       @default(0) @db.Decimal(15, 2)
+  status         WalletStatus  @default(ACTIVE)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
+  disbursements  Disbursement[]
+
+  @@index([userId])
+  @@map("wallets")
+}
+
+model Transaction {
+  id              String             @id @default(uuid())
+  walletId        String
+  type            TransactionType
+  amount          Decimal            @db.Decimal(15, 2)
+  balanceBefore   Decimal            @db.Decimal(15, 2)
+  balanceAfter    Decimal            @db.Decimal(15, 2)
+  status          TransactionStatus  @default(PENDING)
+  reference       String             @unique
+  description     String?
+  metadata        Json?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  wallet          Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([reference])
+  @@index([status])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+model Disbursement {
+  id              String             @id @default(uuid())
+  walletId        String
+  amount          Decimal            @db.Decimal(15, 2)
+  recipientName   String
+  recipientBank   String
+  recipientAccount String
+  status          TransactionStatus  @default(PENDING)
+  reference       String             @unique
+  narration       String?
+  metadata        Json?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  wallet          Wallet             @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([reference])
+  @@index([status])
+  @@index([createdAt])
+  @@map("disbursements")
+}
+
+// ============================================
+// LOCATION MODELS
+// ============================================
+
+model Country {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String   @unique
+  createdAt DateTime @default(now())
+
+  states        State[]
+  users         User[]
+  organizations Organization[]
+
+  @@map("countries")
+}
+
+model State {
+  id        String   @id @default(uuid())
+  countryId String
+  name      String
+  code      String
+  createdAt DateTime @default(now())
+
+  country       Country        @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  lgas          LGA[]
+  users         User[]
+  organizations Organization[]
+  leaderMemberships OrgMembership[] @relation("LeaderState")
+
+  @@unique([countryId, code])
+  @@index([countryId])
+  @@map("states")
+}
+
+model LGA {
+  id        String   @id @default(uuid())
+  stateId   String
+  name      String
+  code      String
+  createdAt DateTime @default(now())
+
+  state         State          @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  wards         Ward[]
+  users         User[]
+  organizations Organization[]
+  leaderMemberships OrgMembership[] @relation("LeaderLGA")
+
+  @@unique([stateId, code])
+  @@index([stateId])
+  @@map("lgas")
+}
+
+model Ward {
+  id        String   @id @default(uuid())
+  lgaId     String
+  name      String
+  code      String
+  createdAt DateTime @default(now())
+
+  lga           LGA            @relation(fields: [lgaId], references: [id], onDelete: Cascade)
+  pollingUnits  PollingUnit[]
+  users         User[]
+  organizations Organization[]
+  leaderMemberships OrgMembership[] @relation("LeaderWard")
+
+  @@unique([lgaId, code])
+  @@index([lgaId])
+  @@map("wards")
+}
+
+model PollingUnit {
+  id        String   @id @default(uuid())
+  wardId    String
+  name      String
+  code      String
+  createdAt DateTime @default(now())
+
+  ward          Ward           @relation(fields: [wardId], references: [id], onDelete: Cascade)
+  users         User[]
+  organizations Organization[]
+  leaderMemberships OrgMembership[] @relation("LeaderPollingUnit")
+
+  @@unique([wardId, code])
+  @@index([wardId])
+  @@map("polling_units")
+}

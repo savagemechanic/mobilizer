@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+*.lcov
+
+# Production builds
+dist/
+build/
+.next/
+out/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Turborepo cache
+.turbo/
+
+# TypeScript
+*.tsbuildinfo
+
+# Docker
+docker-compose.override.yml
+
+# OS files
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+
+# Logs
+logs/
+*.log
