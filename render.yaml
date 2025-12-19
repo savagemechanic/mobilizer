@@ -37,13 +37,15 @@ services:
       - key: FRONTEND_URL
         sync: false # You'll add this manually
 
+  # Redis Cache
+  - type: redis
+    name: mobilizer-redis
+    plan: free
+    ipAllowList: []
+
 databases:
   # PostgreSQL Database
   - name: mobilizer-db
     plan: free
     databaseName: mobilizer
     user: mobilizer
-
-  # Redis Cache
-  - name: mobilizer-redis
-    plan: free
