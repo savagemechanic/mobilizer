@@ -8,9 +8,27 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
-  // Enable CORS
+  // Parse CORS origins from environment variable
+  // Supports comma-separated origins: "http://localhost:3000,https://your-app.vercel.app"
+  const corsOrigin = configService.get('CORS_ORIGIN') || 'http://localhost:3000';
+  const allowedOrigins = corsOrigin.split(',').map(origin => origin.trim());
+
+  // Enable CORS with environment-based configuration
   app.enableCors({
-    origin: '*',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, Postman, server-to-server)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      // Check if the origin is in our allowed list
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`CORS: Blocked request from origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
