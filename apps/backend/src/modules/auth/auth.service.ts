@@ -126,7 +126,17 @@ export class AuthService {
       // Verify refresh token exists in database
       const storedToken = await this.prisma.refreshToken.findUnique({
         where: { token: refreshToken },
-        include: { user: true },
+        include: {
+          user: {
+            include: {
+              country: true,
+              state: true,
+              lga: true,
+              ward: true,
+              pollingUnit: true,
+            },
+          },
+        },
       });
 
       if (!storedToken || storedToken.userId !== payload.sub) {
