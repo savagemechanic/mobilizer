@@ -72,9 +72,16 @@ export class AuthService {
   }
 
   async login(input: LoginInput): Promise<AuthPayload> {
-    // Find user
+    // Find user with location data
     const user = await this.prisma.user.findUnique({
       where: { email: input.email },
+      include: {
+        country: true,
+        state: true,
+        lga: true,
+        ward: true,
+        pollingUnit: true,
+      },
     });
 
     if (!user) {
