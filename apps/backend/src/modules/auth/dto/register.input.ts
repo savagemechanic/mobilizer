@@ -1,5 +1,5 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsEmail, IsNotEmpty, MinLength, IsOptional } from 'class-validator';
+import { IsEmail, IsNotEmpty, MinLength, IsOptional, IsString } from 'class-validator';
 
 @InputType()
 export class RegisterInput {
@@ -28,4 +28,34 @@ export class RegisterInput {
   @Field({ nullable: true })
   @IsOptional()
   phoneNumber?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  countryId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  stateId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  lgaId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  wardId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  pollingUnitId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  locationCode?: string;
 }

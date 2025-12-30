@@ -2,6 +2,7 @@ import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostInput } from './dto/create-post.input';
+import { FeedFilterInput } from './dto/feed-filter.input';
 import { PostEntity, CommentEntity } from './entities/post.entity';
 import { GqlAuthGuard } from '../../common/guards/gql-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -16,8 +17,9 @@ export class PostsResolver {
     @CurrentUser() user: any,
     @Args('limit', { nullable: true, defaultValue: 20 }) limit?: number,
     @Args('offset', { nullable: true, defaultValue: 0 }) offset?: number,
+    @Args('filter', { nullable: true }) filter?: FeedFilterInput,
   ) {
-    return this.postsService.getFeed(user.id, limit, offset);
+    return this.postsService.getFeed(user.id, limit, offset, filter);
   }
 
   @Query(() => [PostEntity])

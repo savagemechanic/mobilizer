@@ -44,6 +44,18 @@ export class AuthService {
         middleName: input.middleName,
         phoneNumber: input.phoneNumber,
         displayName: `${input.firstName} ${input.lastName}`,
+        countryId: input.countryId,
+        stateId: input.stateId,
+        lgaId: input.lgaId,
+        wardId: input.wardId,
+        pollingUnitId: input.pollingUnitId,
+      },
+      include: {
+        country: true,
+        state: true,
+        lga: true,
+        ward: true,
+        pollingUnit: true,
       },
     });
 
@@ -214,6 +226,7 @@ export class AuthService {
         state: true,
         lga: true,
         ward: true,
+        pollingUnit: true,
       },
     });
 
@@ -366,7 +379,7 @@ export class AuthService {
   }
 
   private mapUserToDto(user: any) {
-    return {
+    const baseUser = {
       id: user.id,
       email: user.email,
       firstName: user.firstName,
@@ -384,5 +397,21 @@ export class AuthService {
       suspendedAt: user.suspendedAt || null,
       createdAt: user.createdAt,
     };
+
+    // Add location data if available
+    if (user.country || user.state || user.lga || user.ward || user.pollingUnit) {
+      return {
+        ...baseUser,
+        location: {
+          country: user.country || null,
+          state: user.state || null,
+          lga: user.lga || null,
+          ward: user.ward || null,
+          pollingUnit: user.pollingUnit || null,
+        },
+      };
+    }
+
+    return baseUser;
   }
 }

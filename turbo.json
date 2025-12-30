@@ -12,7 +12,8 @@
         "dist/**",
         "build/**",
         ".next/**",
-        "!.next/cache/**"
+        "!.next/cache/**",
+        ".expo/**"
       ]
     },
     "dev": {

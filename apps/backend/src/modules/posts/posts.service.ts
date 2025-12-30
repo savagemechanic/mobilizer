@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePostInput } from './dto/create-post.input';
+import { FeedFilterInput } from './dto/feed-filter.input';
 
 @Injectable()
 export class PostsService {
   constructor(private prisma: PrismaService) {}
 
-  async getFeed(userId: string, limit: number = 20, offset: number = 0) {
+  async getFeed(userId: string, limit: number = 20, offset: number = 0, filter?: FeedFilterInput) {
     // Get user's organizations
     const memberships = await this.prisma.orgMembership.findMany({
       where: { userId, isActive: true },
@@ -23,14 +24,37 @@ export class PostsService {
 
     const followingIds = following.map((f) => f.followingId);
 
+    // Build location filter for organizations
+    const orgLocationFilter: any = {};
+    if (filter?.stateId) {
+      orgLocationFilter.stateId = filter.stateId;
+    }
+    if (filter?.lgaId) {
+      orgLocationFilter.lgaId = filter.lgaId;
+    }
+    if (filter?.wardId) {
+      orgLocationFilter.wardId = filter.wardId;
+    }
+    if (filter?.pollingUnitId) {
+      orgLocationFilter.pollingUnitId = filter.pollingUnitId;
+    }
+
+    // Build where clause
+    const whereClause: any = {
+      isPublished: true,
+      OR: [
+        { authorId: { in: [...followingIds, userId] } },
+        { orgId: { in: orgIds } },
+      ],
+    };
+
+    // Apply location filter if provided
+    if (Object.keys(orgLocationFilter).length > 0) {
+      whereClause.organization = orgLocationFilter;
+    }
+
     return this.prisma.post.findMany({
-      where: {
-        isPublished: true,
-        OR: [
-          { authorId: { in: [...followingIds, userId] } },
-          { orgId: { in: orgIds } },
-        ],
-      },
+      where: whereClause,
       include: {
         author: {
           select: {
@@ -46,6 +70,10 @@ export class PostsService {
             id: true,
             name: true,
             logo: true,
+            stateId: true,
+            lgaId: true,
+            wardId: true,
+            pollingUnitId: true,
           },
         },
         poll: {
