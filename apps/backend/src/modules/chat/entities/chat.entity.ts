@@ -1,22 +1,7 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { UserSummary } from '../../../common/entities/user-summary.entity';
 
-@ObjectType()
-export class UserSummary {
-  @Field(() => ID)
-  id: string;
-
-  @Field()
-  firstName: string;
-
-  @Field()
-  lastName: string;
-
-  @Field({ nullable: true })
-  displayName?: string;
-
-  @Field({ nullable: true })
-  avatar?: string;
-}
+export { UserSummary };
 
 @ObjectType()
 export class MessageEntity {

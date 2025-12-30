@@ -1,28 +1,13 @@
 import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
 import { PostType } from '@prisma/client';
+import { UserSummary } from '../../../common/entities/user-summary.entity';
 
 registerEnumType(PostType, {
   name: 'PostType',
   description: 'Type of post',
 });
 
-@ObjectType()
-export class UserSummary {
-  @Field(() => ID)
-  id: string;
-
-  @Field()
-  firstName: string;
-
-  @Field()
-  lastName: string;
-
-  @Field({ nullable: true })
-  displayName?: string;
-
-  @Field({ nullable: true })
-  avatar?: string;
-}
+export { UserSummary };
 
 @ObjectType()
 export class OrganizationSummary {
