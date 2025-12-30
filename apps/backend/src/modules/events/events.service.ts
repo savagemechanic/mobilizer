@@ -107,6 +107,7 @@ export class EventsService {
         location: input.location,
         virtualLink: input.virtualLink,
         isVirtual: input.isVirtual || false,
+        isPublished: true, // Events are published by default
         banner: input.banner,
         maxAttendees: input.maxAttendees,
         orgId: input.orgId,
