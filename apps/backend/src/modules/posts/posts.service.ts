@@ -91,30 +91,37 @@ export class PostsService {
             comments: true,
           },
         },
+        likes: {
+          where: { userId },
+          select: { id: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: offset,
     });
 
-    // Transform to add hasVoted and userVotedOptionId to polls
+    // Transform to add hasVoted and userVotedOptionId to polls and isLiked to posts
     return posts.map((post) => {
+      const result: any = { ...post };
+
+      // Add isLiked field
+      result.isLiked = (post as any).likes?.length > 0;
+      delete result.likes; // Remove the likes array from response
+
       if (post.poll) {
         const userVotes = (post.poll as any).votes || [];
         const hasVoted = userVotes.length > 0;
         const userVotedOptionId = hasVoted ? userVotes[0].optionId : null;
 
-        return {
-          ...post,
-          poll: {
-            ...post.poll,
-            hasVoted,
-            userVotedOptionId,
-            votes: undefined, // Remove the votes array from response
-          },
+        result.poll = {
+          ...post.poll,
+          hasVoted,
+          userVotedOptionId,
+          votes: undefined, // Remove the votes array from response
         };
       }
-      return post;
+      return result;
     });
   }
 
@@ -171,7 +178,7 @@ export class PostsService {
     });
   }
 
-  async findById(id: string) {
+  async findById(id: string, userId?: string) {
     const post = await this.prisma.post.findUnique({
       where: { id },
       include: {
@@ -222,6 +229,10 @@ export class PostsService {
             comments: true,
           },
         },
+        likes: userId ? {
+          where: { userId },
+          select: { id: true },
+        } : false,
       },
     });
 
@@ -235,7 +246,14 @@ export class PostsService {
       data: { viewCount: { increment: 1 } },
     });
 
-    return post;
+    // Add isLiked field if userId is provided
+    const result: any = { ...post };
+    if (userId) {
+      result.isLiked = (post as any).likes?.length > 0;
+      delete result.likes; // Remove the likes array from response
+    }
+
+    return result;
   }
 
   async create(userId: string, input: CreatePostInput) {

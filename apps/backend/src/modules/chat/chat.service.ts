@@ -51,6 +51,48 @@ export class ChatService {
     return conversations;
   }
 
+  async getConversation(userId: string, conversationId: string) {
+    // Check if user is a participant
+    const participant = await this.prisma.participant.findUnique({
+      where: {
+        conversationId_userId: {
+          conversationId,
+          userId,
+        },
+      },
+    });
+
+    if (!participant) {
+      throw new ForbiddenException('You are not a participant in this conversation');
+    }
+
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: {
+        participants: {
+          where: { leftAt: null },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                displayName: true,
+                avatar: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    return conversation;
+  }
+
   async getMessages(userId: string, conversationId: string, limit: number = 50, offset: number = 0) {
     // Check if user is a participant
     const participant = await this.prisma.participant.findUnique({

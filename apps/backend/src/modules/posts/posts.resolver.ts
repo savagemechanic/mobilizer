@@ -35,8 +35,8 @@ export class PostsResolver {
 
   @Query(() => PostEntity, { nullable: true })
   @UseGuards(GqlAuthGuard)
-  async post(@Args('id') id: string) {
-    return this.postsService.findById(id);
+  async post(@Args('id') id: string, @CurrentUser() user: any) {
+    return this.postsService.findById(id, user?.id);
   }
 
   @Mutation(() => PostEntity)

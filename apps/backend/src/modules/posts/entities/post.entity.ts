@@ -130,6 +130,12 @@ export class PostEntity {
 
   @Field(() => PollEntity, { nullable: true })
   poll?: PollEntity;
+
+  @Field({ nullable: true, description: 'Whether the current user has liked this post' })
+  isLiked?: boolean;
+
+  @Field(() => [CommentEntity], { nullable: true })
+  comments?: CommentEntity[];
 }
 
 @ObjectType()
@@ -157,4 +163,7 @@ export class CommentEntity {
 
   @Field({ nullable: true })
   updatedAt?: Date;
+
+  @Field(() => UserSummary, { nullable: true })
+  author?: UserSummary;
 }

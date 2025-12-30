@@ -16,6 +16,15 @@ export class ChatResolver {
     return this.chatService.getConversations(user.id);
   }
 
+  @Query(() => ConversationEntity)
+  @UseGuards(GqlAuthGuard)
+  async conversation(
+    @CurrentUser() user: any,
+    @Args('conversationId') conversationId: string,
+  ) {
+    return this.chatService.getConversation(user.id, conversationId);
+  }
+
   @Query(() => [MessageEntity])
   @UseGuards(GqlAuthGuard)
   async messages(
