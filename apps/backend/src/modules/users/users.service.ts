@@ -14,6 +14,7 @@ export class UsersService {
         state: true,
         lga: true,
         ward: true,
+        pollingUnit: true,
         followers: {
           include: {
             follower: {

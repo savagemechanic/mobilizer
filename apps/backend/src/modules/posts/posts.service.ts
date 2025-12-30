@@ -53,7 +53,7 @@ export class PostsService {
       whereClause.organization = orgLocationFilter;
     }
 
-    return this.prisma.post.findMany({
+    const posts = await this.prisma.post.findMany({
       where: whereClause,
       include: {
         author: {
@@ -79,6 +79,10 @@ export class PostsService {
         poll: {
           include: {
             options: true,
+            votes: {
+              where: { userId },
+              select: { optionId: true },
+            },
           },
         },
         _count: {
@@ -91,6 +95,26 @@ export class PostsService {
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: offset,
+    });
+
+    // Transform to add hasVoted and userVotedOptionId to polls
+    return posts.map((post) => {
+      if (post.poll) {
+        const userVotes = (post.poll as any).votes || [];
+        const hasVoted = userVotes.length > 0;
+        const userVotedOptionId = hasVoted ? userVotes[0].optionId : null;
+
+        return {
+          ...post,
+          poll: {
+            ...post.poll,
+            hasVoted,
+            userVotedOptionId,
+            votes: undefined, // Remove the votes array from response
+          },
+        };
+      }
+      return post;
     });
   }
 
@@ -388,61 +412,80 @@ export class PostsService {
   }
 
   async castVote(userId: string, pollId: string, optionId: string) {
-    const poll = await this.prisma.poll.findUnique({
-      where: { id: pollId },
-      include: { options: true },
-    });
+    // Use an interactive transaction to prevent race conditions
+    return this.prisma.$transaction(async (tx) => {
+      const poll = await tx.poll.findUnique({
+        where: { id: pollId },
+        include: { options: true },
+      });
 
-    if (!poll) {
-      throw new NotFoundException('Poll not found');
-    }
+      if (!poll) {
+        throw new NotFoundException('Poll not found');
+      }
 
-    // Check if poll has ended
-    if (poll.endsAt && poll.endsAt < new Date()) {
-      throw new ForbiddenException('Poll has ended');
-    }
+      // Check if poll has ended
+      if (poll.endsAt && poll.endsAt < new Date()) {
+        throw new ForbiddenException('Poll has ended');
+      }
 
-    // Check if already voted
-    const existingVote = await this.prisma.pollVote.findUnique({
-      where: {
-        pollId_optionId_userId: {
+      // Validate that optionId belongs to this poll
+      const validOption = poll.options.find((opt) => opt.id === optionId);
+      if (!validOption) {
+        throw new NotFoundException('Poll option not found');
+      }
+
+      // Check if user has already voted in this poll (for single-vote polls)
+      // This check happens atomically within the transaction
+      const existingVote = await tx.pollVote.findFirst({
+        where: { pollId, userId },
+      });
+
+      if (existingVote) {
+        if (!poll.allowMultiple) {
+          throw new ForbiddenException('You have already voted in this poll');
+        }
+        // For multi-vote polls, check if already voted for this specific option
+        if (existingVote.optionId === optionId) {
+          throw new ForbiddenException('Already voted for this option');
+        }
+      }
+
+      // For multi-vote polls, also check this specific option
+      if (poll.allowMultiple) {
+        const existingOptionVote = await tx.pollVote.findUnique({
+          where: {
+            pollId_optionId_userId: {
+              pollId,
+              optionId,
+              userId,
+            },
+          },
+        });
+
+        if (existingOptionVote) {
+          throw new ForbiddenException('Already voted for this option');
+        }
+      }
+
+      // Create vote within the transaction
+      await tx.pollVote.create({
+        data: {
           pollId,
           optionId,
           userId,
         },
-      },
-    });
-
-    if (existingVote) {
-      throw new ForbiddenException('Already voted for this option');
-    }
-
-    // If not allowing multiple votes, check if user has voted for any option
-    if (!poll.allowMultiple) {
-      const userVote = await this.prisma.pollVote.findFirst({
-        where: { pollId, userId },
       });
 
-      if (userVote) {
-        throw new ForbiddenException('You have already voted in this poll');
-      }
-    }
+      // Update vote count within the transaction
+      await tx.pollOption.update({
+        where: { id: optionId },
+        data: { voteCount: { increment: 1 } },
+      });
 
-    // Create vote
-    await this.prisma.pollVote.create({
-      data: {
-        pollId,
-        optionId,
-        userId,
-      },
+      return true;
+    }, {
+      // Use serializable isolation to prevent race conditions
+      isolationLevel: 'Serializable',
     });
-
-    // Update vote count
-    await this.prisma.pollOption.update({
-      where: { id: optionId },
-      data: { voteCount: { increment: 1 } },
-    });
-
-    return true;
   }
 }

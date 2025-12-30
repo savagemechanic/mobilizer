@@ -128,7 +128,7 @@ enum LeaderLevel {
 model User {
   id                String    @id @default(uuid())
   email             String    @unique
-  phoneNumber       String?   @unique
+  phoneNumber       String?
   password          String
   firstName         String
   lastName          String

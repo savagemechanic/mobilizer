@@ -73,6 +73,12 @@ export class PollEntity {
 
   @Field(() => [PollOptionEntity], { nullable: true })
   options?: PollOptionEntity[];
+
+  @Field({ nullable: true, description: 'Whether the current user has voted in this poll' })
+  hasVoted?: boolean;
+
+  @Field({ nullable: true, description: 'The option ID the current user voted for (if single-vote poll)' })
+  userVotedOptionId?: string;
 }
 
 @ObjectType()

@@ -1,15 +1,38 @@
-import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, ResolveField, Parent } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateProfileInput } from './dto/update-profile.input';
 import { GqlAuthGuard } from '../../common/guards/gql-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { User } from '../auth/dto/auth-payload';
+import { User, UserLocation } from '../auth/dto/auth-payload';
 import { OrgMembershipEntity } from '../organizations/entities/organization.entity';
 
 @Resolver(() => User)
 export class UsersResolver {
   constructor(private usersService: UsersService) {}
+
+  // Field resolver to transform flat location fields into nested UserLocation object
+  @ResolveField(() => UserLocation, { nullable: true })
+  location(@Parent() user: any): UserLocation | null {
+    // If the user already has a location object (from auth service), return it as-is
+    if (user.location && typeof user.location === 'object') {
+      return user.location;
+    }
+
+    // Otherwise, transform flat location fields into nested structure
+    const hasAnyLocation = user.country || user.state || user.lga || user.ward || user.pollingUnit;
+    if (!hasAnyLocation) {
+      return null;
+    }
+
+    return {
+      country: user.country || null,
+      state: user.state || null,
+      lga: user.lga || null,
+      ward: user.ward || null,
+      pollingUnit: user.pollingUnit || null,
+    };
+  }
 
   @Query(() => User)
   @UseGuards(GqlAuthGuard)
