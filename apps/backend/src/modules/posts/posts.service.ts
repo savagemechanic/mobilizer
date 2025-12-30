@@ -42,11 +42,18 @@ export class PostsService {
     // Build where clause
     const whereClause: any = {
       isPublished: true,
-      OR: [
+    };
+
+    // If filtering by specific organization, only show posts from that org
+    if (filter?.orgId) {
+      whereClause.orgId = filter.orgId;
+    } else {
+      // Otherwise show posts from followed users and user's organizations
+      whereClause.OR = [
         { authorId: { in: [...followingIds, userId] } },
         { orgId: { in: orgIds } },
-      ],
-    };
+      ];
+    }
 
     // Apply location filter if provided
     if (Object.keys(orgLocationFilter).length > 0) {
