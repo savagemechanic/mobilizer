@@ -419,8 +419,18 @@ model Post {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
+  // Location fields - posts are tied to a location
+  stateId        String?
+  lgaId          String?
+  wardId         String?
+  pollingUnitId  String?
+
   author         User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [orgId], references: [id])
+  state          State?        @relation(fields: [stateId], references: [id])
+  lga            LGA?          @relation(fields: [lgaId], references: [id])
+  ward           Ward?         @relation(fields: [wardId], references: [id])
+  pollingUnit    PollingUnit?  @relation(fields: [pollingUnitId], references: [id])
 
   poll           Poll?
   comments       Comment[]
@@ -429,6 +439,10 @@ model Post {
 
   @@index([authorId])
   @@index([orgId])
+  @@index([stateId])
+  @@index([lgaId])
+  @@index([wardId])
+  @@index([pollingUnitId])
   @@index([createdAt])
   @@index([isPublished])
   @@map("posts")
@@ -849,6 +863,7 @@ model State {
   lgas          LGA[]
   users         User[]
   organizations Organization[]
+  posts         Post[]
   leaderMemberships OrgMembership[] @relation("LeaderState")
 
   @@unique([countryId, code])
@@ -867,6 +882,7 @@ model LGA {
   wards         Ward[]
   users         User[]
   organizations Organization[]
+  posts         Post[]
   leaderMemberships OrgMembership[] @relation("LeaderLGA")
 
   @@unique([stateId, code])
@@ -885,6 +901,7 @@ model Ward {
   pollingUnits  PollingUnit[]
   users         User[]
   organizations Organization[]
+  posts         Post[]
   leaderMemberships OrgMembership[] @relation("LeaderWard")
 
   @@unique([lgaId, code])
@@ -902,6 +919,7 @@ model PollingUnit {
   ward          Ward           @relation(fields: [wardId], references: [id], onDelete: Cascade)
   users         User[]
   organizations Organization[]
+  posts         Post[]
   leaderMemberships OrgMembership[] @relation("LeaderPollingUnit")
 
   @@unique([wardId, code])

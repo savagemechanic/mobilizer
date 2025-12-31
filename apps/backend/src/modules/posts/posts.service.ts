@@ -36,40 +36,26 @@ export class PostsService {
 
     const followingIds = following.map((f) => f.followingId);
 
-    // Build location filter for organizations
-    const orgLocationFilter: any = {};
-    if (filter?.stateId) {
-      orgLocationFilter.stateId = filter.stateId;
-    }
-    if (filter?.lgaId) {
-      orgLocationFilter.lgaId = filter.lgaId;
-    }
-    if (filter?.wardId) {
-      orgLocationFilter.wardId = filter.wardId;
-    }
-    if (filter?.pollingUnitId) {
-      orgLocationFilter.pollingUnitId = filter.pollingUnitId;
-    }
-
     // Build where clause
     const whereClause: any = {
       isPublished: true,
     };
 
+    // Apply location filter directly on posts (posts have their own location)
+    if (filter?.stateId) whereClause.stateId = filter.stateId;
+    if (filter?.lgaId) whereClause.lgaId = filter.lgaId;
+    if (filter?.wardId) whereClause.wardId = filter.wardId;
+    if (filter?.pollingUnitId) whereClause.pollingUnitId = filter.pollingUnitId;
+
     // If filtering by specific organization, only show posts from that org
     if (filter?.orgId) {
       whereClause.orgId = filter.orgId;
-    } else {
-      // Otherwise show posts from followed users and user's organizations
+    } else if (!filter?.stateId && !filter?.lgaId && !filter?.wardId && !filter?.pollingUnitId) {
+      // No location or org filters - show posts from followed users and user's organizations
       whereClause.OR = [
         { authorId: { in: [...followingIds, userId] } },
         { orgId: { in: orgIds } },
       ];
-    }
-
-    // Apply location filter if provided
-    if (Object.keys(orgLocationFilter).length > 0) {
-      whereClause.organization = orgLocationFilter;
     }
 
     const posts = await this.prisma.post.findMany({
@@ -276,6 +262,17 @@ export class PostsService {
   }
 
   async create(userId: string, input: CreatePostInput) {
+    // Get user's location to set on the post
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        stateId: true,
+        lgaId: true,
+        wardId: true,
+        pollingUnitId: true,
+      },
+    });
+
     const post = await this.prisma.post.create({
       data: {
         authorId: userId,
@@ -283,6 +280,11 @@ export class PostsService {
         type: input.type as any,
         orgId: input.orgId,
         mediaUrls: input.mediaUrls || [],
+        // Set post location from user's location
+        stateId: user?.stateId,
+        lgaId: user?.lgaId,
+        wardId: user?.wardId,
+        pollingUnitId: user?.pollingUnitId,
       },
       include: {
         author: {
