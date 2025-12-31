@@ -59,9 +59,15 @@ export class ChatService {
       isGroup: conv.type === 'GROUP',
       creatorId: conv.participants[0]?.userId || userId,
       messages: conv.messages.map((msg) => ({
-        ...msg,
+        id: msg.id,
+        conversationId: msg.conversationId,
+        senderId: msg.senderId,
+        sender: msg.sender,
+        content: msg.content || '',
+        mediaUrl: msg.mediaUrl,
         isRead: msg.senderId === userId || msg.readReceipts.length > 0,
         readAt: msg.readReceipts[0]?.readAt || null,
+        createdAt: msg.createdAt,
       })),
     }));
   }
@@ -150,11 +156,17 @@ export class ChatService {
       skip: offset,
     });
 
-    // Map messages to include isRead field
+    // Map messages to include isRead field explicitly
     return messages.map((msg) => ({
-      ...msg,
+      id: msg.id,
+      conversationId: msg.conversationId,
+      senderId: msg.senderId,
+      sender: msg.sender,
+      content: msg.content || '',
+      mediaUrl: msg.mediaUrl,
       isRead: msg.senderId === userId || msg.readReceipts.length > 0,
       readAt: msg.readReceipts[0]?.readAt || null,
+      createdAt: msg.createdAt,
     }));
   }
 
@@ -296,11 +308,17 @@ export class ChatService {
       });
     }
 
-    // Return with isRead field (sender's own message is always "read" by them)
+    // Return with isRead field explicitly set
     return {
-      ...message,
+      id: message.id,
+      conversationId: message.conversationId,
+      senderId: message.senderId,
+      sender: message.sender,
+      content: message.content || '',
+      mediaUrl: message.mediaUrl,
       isRead: false,
       readAt: null,
+      createdAt: message.createdAt,
     };
   }
 
@@ -369,11 +387,17 @@ export class ChatService {
       },
     });
 
-    // Return the message with isRead field
+    // Return the message with isRead field explicitly set
     return {
-      ...message,
+      id: message.id,
+      conversationId: message.conversationId,
+      senderId: message.senderId,
+      sender: message.sender,
+      content: message.content || '',
+      mediaUrl: message.mediaUrl,
       isRead: true,
       readAt: receipt.readAt,
+      createdAt: message.createdAt,
     };
   }
 

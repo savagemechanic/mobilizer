@@ -20,11 +20,44 @@
 import { PrismaClient, Gender } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient();
+// Configure Prisma with connection pool settings for long-running operations
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+  log: ['warn', 'error'],
+});
 
-// Batch sizes for performance
-const USER_BATCH_SIZE = 500;
-const POST_BATCH_SIZE = 1000;
+// Smaller batch sizes to prevent connection timeouts
+const USER_BATCH_SIZE = 100;
+const POST_BATCH_SIZE = 200;
+
+// Helper to execute with retry on connection errors
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries = 3,
+  delay = 1000
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      const isConnectionError = error?.code === 'P1017' || error?.code === 'P1001' || error?.code === 'P1002';
+      if (isConnectionError && attempt < maxRetries) {
+        console.log(`   ⚠️  Connection error, retrying (${attempt}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, delay * attempt));
+        // Reconnect
+        await prisma.$disconnect();
+        await prisma.$connect();
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
 
 // Nigerian names by region/ethnicity
 const NAMES_BY_REGION: Record<string, { firstNames: string[]; lastNames: string[] }> = {
@@ -298,27 +331,37 @@ async function main() {
   const hashedPassword = await bcrypt.hash('demo123', 10);
   const genders = [Gender.MALE, Gender.FEMALE];
 
+  // Establish connection
+  console.log('🔌 Connecting to database...');
+  await prisma.$connect();
+  console.log('✓ Connected!\n');
+
   // Get Nigeria
-  const nigeria = await prisma.country.findFirst({ where: { code: 'NG' } });
+  const nigeria = await withRetry(async () => {
+    return prisma.country.findFirst({ where: { code: 'NG' } });
+  });
   if (!nigeria) {
     console.error('❌ Nigeria not found! Run the main seed first.');
     return;
   }
 
   // Get all states with their full hierarchy
-  const states = await prisma.state.findMany({
-    where: { countryId: nigeria.id },
-    include: {
-      lgas: {
-        include: {
-          wards: {
-            include: {
-              pollingUnits: true
+  console.log('📍 Loading location hierarchy...');
+  const states = await withRetry(async () => {
+    return prisma.state.findMany({
+      where: { countryId: nigeria.id },
+      include: {
+        lgas: {
+          include: {
+            wards: {
+              include: {
+                pollingUnits: true
+              }
             }
           }
         }
       }
-    }
+    });
   });
 
   console.log(`📍 Found ${states.length} states\n`);
@@ -369,17 +412,23 @@ async function main() {
 
             // Flush user batch if full
             if (userBatch.length >= USER_BATCH_SIZE) {
-              await prisma.user.createMany({
-                data: userBatch,
-                skipDuplicates: true,
+              const batchEmails = userBatch.map(u => u.email);
+
+              await withRetry(async () => {
+                await prisma.user.createMany({
+                  data: userBatch,
+                  skipDuplicates: true,
+                });
               });
 
               // Get created users for posts
-              const createdUsers = await prisma.user.findMany({
-                where: {
-                  email: { in: userBatch.map(u => u.email) }
-                },
-                select: { id: true, email: true, stateId: true, lgaId: true, wardId: true, pollingUnitId: true }
+              const createdUsers = await withRetry(async () => {
+                return prisma.user.findMany({
+                  where: {
+                    email: { in: batchEmails }
+                  },
+                  select: { id: true, email: true, stateId: true, lgaId: true, wardId: true, pollingUnitId: true }
+                });
               });
 
               // Create posts for these users
@@ -404,7 +453,9 @@ async function main() {
 
               // Flush post batch if full
               if (postBatch.length >= POST_BATCH_SIZE) {
-                await prisma.post.createMany({ data: postBatch });
+                await withRetry(async () => {
+                  await prisma.post.createMany({ data: postBatch });
+                });
                 postBatch = [];
               }
 
@@ -426,16 +477,22 @@ async function main() {
 
   // Flush remaining batches
   if (userBatch.length > 0) {
-    await prisma.user.createMany({
-      data: userBatch,
-      skipDuplicates: true,
+    const batchEmails = userBatch.map(u => u.email);
+
+    await withRetry(async () => {
+      await prisma.user.createMany({
+        data: userBatch,
+        skipDuplicates: true,
+      });
     });
 
-    const createdUsers = await prisma.user.findMany({
-      where: {
-        email: { in: userBatch.map(u => u.email) }
-      },
-      select: { id: true, email: true, stateId: true, lgaId: true, wardId: true, pollingUnitId: true }
+    const createdUsers = await withRetry(async () => {
+      return prisma.user.findMany({
+        where: {
+          email: { in: batchEmails }
+        },
+        select: { id: true, email: true, stateId: true, lgaId: true, wardId: true, pollingUnitId: true }
+      });
     });
 
     for (const user of createdUsers) {
@@ -458,7 +515,9 @@ async function main() {
   }
 
   if (postBatch.length > 0) {
-    await prisma.post.createMany({ data: postBatch });
+    await withRetry(async () => {
+      await prisma.post.createMany({ data: postBatch });
+    });
   }
 
   const totalTime = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
