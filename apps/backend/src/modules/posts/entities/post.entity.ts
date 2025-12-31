@@ -144,6 +144,12 @@ export class CommentEntity {
   likeCount: number;
 
   @Field()
+  replyCount: number;
+
+  @Field()
+  isDeleted: boolean;
+
+  @Field()
   createdAt: Date;
 
   @Field({ nullable: true })
@@ -151,4 +157,35 @@ export class CommentEntity {
 
   @Field(() => UserSummary, { nullable: true })
   author?: UserSummary;
+
+  @Field({ nullable: true, description: 'Whether the current user has liked this comment' })
+  isLiked?: boolean;
+
+  @Field(() => [CommentEntity], { nullable: true, description: 'First few replies to this comment' })
+  replies?: CommentEntity[];
+
+  @Field({ nullable: true, description: 'Total number of replies to this comment' })
+  totalReplies?: number;
 }
+
+@ObjectType()
+export class LikeResultEntity {
+  @Field({ description: 'Whether the post/comment is now liked' })
+  liked: boolean;
+
+  @Field({ description: 'Updated like count' })
+  likeCount: number;
+}
+
+@ObjectType()
+export class ShareResultEntity {
+  @Field(() => ID)
+  id: string;
+
+  @Field({ description: 'Updated share count' })
+  shareCount: number;
+
+  @Field({ description: 'Platform the post was shared to' })
+  platform: string;
+}
+

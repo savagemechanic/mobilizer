@@ -3,7 +3,12 @@ import { UseGuards } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostInput } from './dto/create-post.input';
 import { FeedFilterInput } from './dto/feed-filter.input';
-import { PostEntity, CommentEntity } from './entities/post.entity';
+import {
+  PostEntity,
+  CommentEntity,
+  LikeResultEntity,
+  ShareResultEntity,
+} from './entities/post.entity';
 import { GqlAuthGuard } from '../../common/guards/gql-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -57,7 +62,7 @@ export class PostsResolver {
     return this.postsService.delete(user.id, postId);
   }
 
-  @Mutation(() => Boolean)
+  @Mutation(() => LikeResultEntity, { description: 'Like or unlike a post. Returns the new like state and count.' })
   @UseGuards(GqlAuthGuard)
   async likePost(
     @CurrentUser() user: any,
@@ -75,6 +80,66 @@ export class PostsResolver {
     @Args('parentId', { nullable: true }) parentId?: string,
   ) {
     return this.postsService.createComment(user.id, postId, content, parentId);
+  }
+
+  @Mutation(() => LikeResultEntity, { description: 'Like or unlike a comment. Returns the new like state and count.' })
+  @UseGuards(GqlAuthGuard)
+  async likeComment(
+    @CurrentUser() user: any,
+    @Args('commentId') commentId: string,
+  ) {
+    return this.postsService.likeComment(user.id, commentId);
+  }
+
+  @Mutation(() => Boolean, { description: 'Soft delete a comment. Only the author can delete their own comments.' })
+  @UseGuards(GqlAuthGuard)
+  async deleteComment(
+    @CurrentUser() user: any,
+    @Args('commentId') commentId: string,
+  ) {
+    return this.postsService.deleteComment(user.id, commentId);
+  }
+
+  @Mutation(() => CommentEntity, { description: 'Update a comment. Only the author can edit their own comments.' })
+  @UseGuards(GqlAuthGuard)
+  async updateComment(
+    @CurrentUser() user: any,
+    @Args('commentId') commentId: string,
+    @Args('content') content: string,
+  ) {
+    return this.postsService.updateComment(user.id, commentId, content);
+  }
+
+  @Mutation(() => ShareResultEntity, { description: 'Record a share action for a post.' })
+  @UseGuards(GqlAuthGuard)
+  async sharePost(
+    @CurrentUser() user: any,
+    @Args('postId') postId: string,
+    @Args('platform', { nullable: true, defaultValue: 'internal' }) platform?: string,
+  ) {
+    return this.postsService.sharePost(user.id, postId, platform);
+  }
+
+  @Query(() => [CommentEntity], { description: 'Get comments for a post.' })
+  @UseGuards(GqlAuthGuard)
+  async comments(
+    @CurrentUser() user: any,
+    @Args('postId') postId: string,
+    @Args('limit', { nullable: true, defaultValue: 20 }) limit?: number,
+    @Args('offset', { nullable: true, defaultValue: 0 }) offset?: number,
+  ) {
+    return this.postsService.getComments(postId, user.id, limit, offset);
+  }
+
+  @Query(() => [CommentEntity], { description: 'Get replies for a comment.' })
+  @UseGuards(GqlAuthGuard)
+  async replies(
+    @CurrentUser() user: any,
+    @Args('commentId') commentId: string,
+    @Args('limit', { nullable: true, defaultValue: 20 }) limit?: number,
+    @Args('offset', { nullable: true, defaultValue: 0 }) offset?: number,
+  ) {
+    return this.postsService.getReplies(commentId, user.id, limit, offset);
   }
 
   @Mutation(() => Boolean)

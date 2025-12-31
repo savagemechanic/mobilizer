@@ -172,6 +172,8 @@ model User {
   posts             Post[]
   comments          Comment[]
   likes             Like[]
+  commentLikes      CommentLike[]
+  shares            Share[]
   pollVotes         PollVote[]
   eventsCreated     Event[]           @relation("EventCreator")
   eventRSVPs        EventRSVP[]
@@ -423,6 +425,7 @@ model Post {
   poll           Poll?
   comments       Comment[]
   likes          Like[]
+  shares         Share[]
 
   @@index([authorId])
   @@index([orgId])
@@ -478,23 +481,44 @@ model PollVote {
 }
 
 model Comment {
-  id        String   @id @default(uuid())
-  postId    String
-  authorId  String
-  content   String
-  parentId  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String    @id @default(uuid())
+  postId      String
+  authorId    String
+  content     String
+  parentId    String?
+  likeCount   Int       @default(0)
+  replyCount  Int       @default(0)
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
-  replies   Comment[] @relation("CommentReplies")
+  post        Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author      User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent      Comment?      @relation("CommentReplies", fields: [parentId], references: [id])
+  replies     Comment[]     @relation("CommentReplies")
+  likes       CommentLike[]
 
   @@index([postId])
   @@index([authorId])
   @@index([parentId])
+  @@index([isDeleted])
   @@map("comments")
+}
+
+model CommentLike {
+  id        String   @id @default(uuid())
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@index([commentId])
+  @@index([userId])
+  @@map("comment_likes")
 }
 
 model Like {
@@ -511,6 +535,23 @@ model Like {
   @@index([userId])
   @@map("likes")
 }
+
+model Share {
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  platform  String   @default("internal") // internal, twitter, facebook, whatsapp, copy_link
+  createdAt DateTime @default(now())
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([userId])
+  @@index([platform])
+  @@map("shares")
+}
+
 
 // ============================================
 // EVENT MODELS
