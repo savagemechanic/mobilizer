@@ -133,6 +133,9 @@ export class OrganizationsService {
       throw new ConflictException('Organization with this name already exists');
     }
 
+    // Generate invite code
+    const inviteCode = await this.generateInviteCode();
+
     // Create organization
     const org = await this.prisma.organization.create({
       data: {
@@ -142,6 +145,7 @@ export class OrganizationsService {
         level: input.level as any,
         logo: input.logo,
         banner: input.banner,
+        inviteCode,
         movement: { connect: { id: input.movementId } },
         ...(input.parentId && { parent: { connect: { id: input.parentId } } }),
         ...(input.countryId && { country: { connect: { id: input.countryId } } }),
@@ -607,5 +611,165 @@ export class OrganizationsService {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
+  }
+
+  /**
+   * Generate a unique 8-character invite code
+   */
+  private async generateInviteCode(): Promise<string> {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const length = 8;
+
+    let code: string;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    do {
+      code = Array.from({ length }, () =>
+        chars.charAt(Math.floor(Math.random() * chars.length))
+      ).join('');
+
+      // Check if code already exists
+      const existing = await this.prisma.organization.findUnique({
+        where: { inviteCode: code },
+      });
+
+      if (!existing) {
+        return code;
+      }
+
+      attempts++;
+    } while (attempts < maxAttempts);
+
+    throw new ConflictException('Failed to generate unique invite code');
+  }
+
+  /**
+   * Find organization by invite code
+   */
+  async findByInviteCode(code: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { inviteCode: code.toUpperCase() },
+      include: {
+        state: true,
+        lga: true,
+        ward: true,
+        movement: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        _count: {
+          select: {
+            memberships: true,
+          },
+        },
+      },
+    });
+
+    if (!org) {
+      throw new NotFoundException('Invalid invite code');
+    }
+
+    return org;
+  }
+
+  /**
+   * Join organization using invite code
+   */
+  async joinOrganizationByCode(userId: string, code: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { inviteCode: code.toUpperCase() },
+    });
+
+    if (!org) {
+      throw new NotFoundException('Invalid invite code');
+    }
+
+    // Check if already a member
+    const existingMembership = await this.prisma.orgMembership.findUnique({
+      where: {
+        userId_orgId: {
+          userId,
+          orgId: org.id,
+        },
+      },
+    });
+
+    if (existingMembership) {
+      throw new ConflictException('Already a member of this organization');
+    }
+
+    // Create membership
+    const membership = await this.prisma.orgMembership.create({
+      data: {
+        userId,
+        orgId: org.id,
+        approvedAt: new Date(),
+      },
+      include: {
+        organization: {
+          include: {
+            state: true,
+            lga: true,
+            ward: true,
+          },
+        },
+      },
+    });
+
+    // Update member count
+    await this.prisma.organization.update({
+      where: { id: org.id },
+      data: { memberCount: { increment: 1 } },
+    });
+
+    return membership;
+  }
+
+  /**
+   * Regenerate invite code (admin only)
+   */
+  async regenerateInviteCode(orgId: string, requesterId: string) {
+    // Check if requester is admin of this organization
+    const requesterMembership = await this.prisma.orgMembership.findUnique({
+      where: {
+        userId_orgId: {
+          userId: requesterId,
+          orgId,
+        },
+      },
+    });
+
+    if (!requesterMembership?.isAdmin) {
+      throw new ConflictException('Only admins can regenerate invite codes');
+    }
+
+    const newCode = await this.generateInviteCode();
+
+    const org = await this.prisma.organization.update({
+      where: { id: orgId },
+      data: { inviteCode: newCode },
+    });
+
+    return org;
+  }
+
+  /**
+   * Check if user is admin of organization
+   */
+  async isUserAdmin(userId: string, orgId: string): Promise<boolean> {
+    const membership = await this.prisma.orgMembership.findUnique({
+      where: {
+        userId_orgId: {
+          userId,
+          orgId,
+        },
+      },
+    });
+
+    return membership?.isAdmin ?? false;
   }
 }

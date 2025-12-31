@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Mobilizer",
+    "slug": "mobilizer",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "scheme": "mobilizer",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mobilizer.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.mobilizer.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "7b842fd8-5c5d-445f-be1b-182b0462b646"
+      },
+      "EXPO_PUBLIC_GRAPHQL_HTTP_URL": "https://mobilizer-backend-dyw1.onrender.com/graphql",
+      "EXPO_PUBLIC_API_URL": "https://mobilizer-backend-dyw1.onrender.com",
+      "EXPO_PUBLIC_ENV": "production"
+    },
+    "owner": "savagemechanic"
+  }
+}

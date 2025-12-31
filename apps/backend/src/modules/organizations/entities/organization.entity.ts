@@ -58,6 +58,9 @@ export class OrganizationEntity {
   @Field()
   memberCount: number;
 
+  @Field({ nullable: true })
+  inviteCode?: string;
+
   @Field()
   isVerified: boolean;
 

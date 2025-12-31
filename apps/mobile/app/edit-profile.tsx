@@ -1,0 +1,306 @@
+import React, { useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useMutation } from '@apollo/client';
+import { useAuthStore } from '@/store/auth';
+import { Avatar } from '@/components/ui';
+import LocationPicker, { LocationValue } from '@/components/LocationPicker';
+import { UPDATE_PROFILE } from '@/lib/graphql/mutations/users';
+
+export default function EditProfileScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { user, updateUser } = useAuthStore();
+
+  const [firstName, setFirstName] = useState(user?.firstName || '');
+  const [lastName, setLastName] = useState(user?.lastName || '');
+  const [middleName, setMiddleName] = useState(user?.middleName || '');
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [bio, setBio] = useState(user?.bio || '');
+  const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || '');
+
+  // Location state - initialized from user data
+  const initialLocation = useMemo<LocationValue>(() => ({
+    stateId: user?.location?.state?.id,
+    lgaId: user?.location?.lga?.id,
+    wardId: user?.location?.ward?.id,
+    pollingUnitId: user?.location?.pollingUnit?.id,
+  }), [user]);
+
+  const [location, setLocation] = useState<LocationValue>(initialLocation);
+
+  const [updateProfile, { loading }] = useMutation(UPDATE_PROFILE, {
+    onCompleted: (data) => {
+      if (data?.updateProfile) {
+        updateUser(data.updateProfile);
+        Alert.alert('Success', 'Profile updated successfully', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      }
+    },
+    onError: (error) => {
+      Alert.alert('Error', error.message || 'Failed to update profile');
+    },
+  });
+
+  const handleLocationChange = (newLocation: LocationValue) => {
+    setLocation(newLocation);
+  };
+
+  const handleSave = () => {
+    const input: any = {};
+
+    if (firstName !== user?.firstName) input.firstName = firstName;
+    if (lastName !== user?.lastName) input.lastName = lastName;
+    if (middleName !== user?.middleName) input.middleName = middleName;
+    if (displayName !== user?.displayName) input.displayName = displayName;
+    if (bio !== user?.bio) input.bio = bio;
+    if (phoneNumber !== user?.phoneNumber) input.phoneNumber = phoneNumber;
+
+    // Add location fields if changed
+    if (location.stateId) input.stateId = location.stateId;
+    if (location.lgaId) input.lgaId = location.lgaId;
+    if (location.wardId) input.wardId = location.wardId;
+    if (location.pollingUnitId) input.pollingUnitId = location.pollingUnitId;
+
+    if (Object.keys(input).length === 0) {
+      Alert.alert('No Changes', 'No changes were made to your profile');
+      return;
+    }
+
+    updateProfile({ variables: { input } });
+  };
+
+  const userName = user?.displayName || `${user?.firstName} ${user?.lastName}`.trim() || 'User';
+
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Edit Profile</Text>
+        <TouchableOpacity onPress={handleSave} disabled={loading} style={styles.saveButton}>
+          {loading ? (
+            <ActivityIndicator size="small" color="#007AFF" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Avatar Section */}
+        <View style={styles.avatarSection}>
+          <Avatar uri={user?.avatar} name={userName} size={100} />
+          <TouchableOpacity style={styles.changePhotoButton}>
+            <Text style={styles.changePhotoText}>Change Photo</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Form Fields */}
+        <View style={styles.formSection}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>First Name</Text>
+            <TextInput
+              style={styles.input}
+              value={firstName}
+              onChangeText={setFirstName}
+              placeholder="Enter first name"
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Last Name</Text>
+            <TextInput
+              style={styles.input}
+              value={lastName}
+              onChangeText={setLastName}
+              placeholder="Enter last name"
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Middle Name</Text>
+            <TextInput
+              style={styles.input}
+              value={middleName}
+              onChangeText={setMiddleName}
+              placeholder="Enter middle name (optional)"
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Display Name</Text>
+            <TextInput
+              style={styles.input}
+              value={displayName}
+              onChangeText={setDisplayName}
+              placeholder="Enter display name"
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Bio</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={bio}
+              onChangeText={setBio}
+              placeholder="Tell us about yourself"
+              placeholderTextColor="#999"
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Phone Number</Text>
+            <TextInput
+              style={styles.input}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              placeholder="Enter phone number"
+              placeholderTextColor="#999"
+              keyboardType="phone-pad"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={[styles.input, styles.disabledInput]}
+              value={user?.email}
+              editable={false}
+            />
+            <Text style={styles.helpText}>Email cannot be changed</Text>
+          </View>
+        </View>
+
+        {/* Location Section */}
+        <View style={styles.formSection}>
+          <Text style={styles.sectionTitle}>Location</Text>
+          <LocationPicker
+            value={initialLocation}
+            onChange={handleLocationChange}
+            disabled={loading}
+          />
+        </View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  backButton: {
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+  saveButton: {
+    padding: 4,
+    minWidth: 50,
+    alignItems: 'flex-end',
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  content: {
+    flex: 1,
+  },
+  avatarSection: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 16,
+  },
+  changePhotoButton: {
+    marginTop: 16,
+  },
+  changePhotoText: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  formSection: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 16,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#F9F9F9',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#000',
+  },
+  textArea: {
+    height: 100,
+    paddingTop: 12,
+  },
+  disabledInput: {
+    backgroundColor: '#F0F0F0',
+    color: '#999',
+  },
+  helpText: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+});

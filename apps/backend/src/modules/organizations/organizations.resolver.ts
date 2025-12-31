@@ -34,6 +34,12 @@ export class OrganizationsResolver {
     return this.organizationsService.findBySlug(slug);
   }
 
+  @Query(() => OrganizationEntity, { nullable: true })
+  @UseGuards(GqlAuthGuard)
+  async organizationByCode(@Args('code') code: string) {
+    return this.organizationsService.findByInviteCode(code);
+  }
+
   @Query(() => [OrganizationEntity])
   @UseGuards(GqlAuthGuard)
   async myOrganizations(@CurrentUser() user: any) {
@@ -105,5 +111,23 @@ export class OrganizationsResolver {
     @Args('membershipId') membershipId: string,
   ) {
     return this.organizationsService.removeLeader(membershipId);
+  }
+
+  @Mutation(() => OrgMembershipEntity)
+  @UseGuards(GqlAuthGuard)
+  async joinOrganizationByCode(
+    @CurrentUser() user: any,
+    @Args('code') code: string,
+  ) {
+    return this.organizationsService.joinOrganizationByCode(user.id, code);
+  }
+
+  @Mutation(() => OrganizationEntity)
+  @UseGuards(GqlAuthGuard)
+  async regenerateInviteCode(
+    @CurrentUser() user: any,
+    @Args('orgId') orgId: string,
+  ) {
+    return this.organizationsService.regenerateInviteCode(orgId, user.id);
   }
 }

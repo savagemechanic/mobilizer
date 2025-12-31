@@ -1,0 +1,464 @@
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  ScrollView,
+} from 'react-native';
+import { useRouter, Link } from 'expo-router';
+import { useMutation } from '@apollo/client';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { REGISTER } from '@/lib/graphql/mutations/auth';
+import { useAuthStore } from '@/store/auth';
+import { useUIStore } from '@/store/ui';
+import LocationPicker, { LocationValue } from '@/components/LocationPicker';
+
+const registerSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  firstName: z.string().min(2, 'First name is required'),
+  lastName: z.string().min(2, 'Last name is required'),
+  phoneNumber: z.string().optional(),
+  locationCode: z.string().optional(),
+});
+
+type RegisterForm = z.infer<typeof registerSchema>;
+
+export default function RegisterScreen() {
+  const router = useRouter();
+  const { login } = useAuthStore();
+  const { showToast } = useUIStore();
+  const [isLoading, setIsLoading] = useState(false);
+  const [useLocationCode, setUseLocationCode] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [location, setLocation] = useState<LocationValue>({});
+
+  const [registerMutation] = useMutation(REGISTER);
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<RegisterForm>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+      firstName: '',
+      lastName: '',
+      phoneNumber: '',
+    },
+  });
+
+  const onSubmit = async (data: RegisterForm) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Validate location is complete
+      if (!useLocationCode) {
+        if (!location.stateId) {
+          setError('Please select a State');
+          setIsLoading(false);
+          return;
+        }
+        if (!location.lgaId) {
+          setError('Please select an LGA');
+          setIsLoading(false);
+          return;
+        }
+        if (!location.wardId) {
+          setError('Please select a Ward');
+          setIsLoading(false);
+          return;
+        }
+        if (!location.pollingUnitId) {
+          setError('Please select a Polling Unit');
+          setIsLoading(false);
+          return;
+        }
+      } else if (!data.locationCode) {
+        setError('Please enter a location code');
+        setIsLoading(false);
+        return;
+      }
+
+      // Merge location data with form data
+      const input: any = {
+        email: data.email,
+        password: data.password,
+        firstName: data.firstName,
+        lastName: data.lastName,
+      };
+
+      // Add optional fields
+      if (data.phoneNumber) input.phoneNumber = data.phoneNumber;
+
+      // Add location fields (all required)
+      if (!useLocationCode) {
+        input.stateId = location.stateId;
+        input.lgaId = location.lgaId;
+        input.wardId = location.wardId;
+        input.pollingUnitId = location.pollingUnitId;
+      } else {
+        input.locationCode = data.locationCode;
+      }
+
+      const { data: result } = await registerMutation({
+        variables: {
+          input,
+        },
+      });
+
+      if (result?.register) {
+        const { accessToken, refreshToken, user } = result.register;
+        await login(accessToken, refreshToken, user);
+
+        // Navigate to the app
+        router.replace('/(tabs)');
+      } else {
+        setError('Registration failed. Please try again.');
+      }
+    } catch (err: any) {
+      const errorMessage = err.graphQLErrors?.[0]?.message
+        || err.message
+        || 'Registration failed. Please try again.';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.content}>
+          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.subtitle}>Sign up to get started</Text>
+
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorMessage}>{error}</Text>
+            </View>
+          )}
+
+          <View style={styles.form}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>First Name</Text>
+              <Controller
+                control={control}
+                name="firstName"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={[styles.input, errors.firstName && styles.inputError]}
+                    placeholder="Enter your first name"
+                    placeholderTextColor="#999"
+                    autoCapitalize="words"
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    editable={!isLoading}
+                  />
+                )}
+              />
+              {errors.firstName && (
+                <Text style={styles.errorText}>{errors.firstName.message}</Text>
+              )}
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Last Name</Text>
+              <Controller
+                control={control}
+                name="lastName"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={[styles.input, errors.lastName && styles.inputError]}
+                    placeholder="Enter your last name"
+                    placeholderTextColor="#999"
+                    autoCapitalize="words"
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    editable={!isLoading}
+                  />
+                )}
+              />
+              {errors.lastName && (
+                <Text style={styles.errorText}>{errors.lastName.message}</Text>
+              )}
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Email</Text>
+              <Controller
+                control={control}
+                name="email"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={[styles.input, errors.email && styles.inputError]}
+                    placeholder="Enter your email"
+                    placeholderTextColor="#999"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    autoComplete="email"
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    editable={!isLoading}
+                  />
+                )}
+              />
+              {errors.email && (
+                <Text style={styles.errorText}>{errors.email.message}</Text>
+              )}
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Phone (Optional)</Text>
+              <Controller
+                control={control}
+                name="phoneNumber"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your phone number"
+                    placeholderTextColor="#999"
+                    keyboardType="phone-pad"
+                    autoComplete="tel"
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    editable={!isLoading}
+                  />
+                )}
+              />
+            </View>
+
+            {/* Location Selection */}
+            <View style={styles.inputContainer}>
+              <View style={styles.locationHeader}>
+                <Text style={styles.label}>Location <Text style={styles.requiredAsterisk}>*</Text></Text>
+                <TouchableOpacity
+                  onPress={() => setUseLocationCode(!useLocationCode)}
+                  disabled={isLoading}
+                >
+                  <Text style={styles.toggleText}>
+                    {useLocationCode ? 'Use Dropdowns' : 'Use Code'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {useLocationCode ? (
+                <View>
+                  <Controller
+                    control={control}
+                    name="locationCode"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g., 25-012-03-001"
+                        placeholderTextColor="#999"
+                        autoCapitalize="none"
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        value={value}
+                        editable={!isLoading}
+                      />
+                    )}
+                  />
+                  <Text style={styles.codeHelpText}>
+                    Format: StateID-LGAID-WardID-PollingUnitID
+                  </Text>
+                </View>
+              ) : (
+                <LocationPicker
+                  value={location}
+                  onChange={setLocation}
+                  disabled={isLoading}
+                />
+              )}
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Password</Text>
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={[styles.input, errors.password && styles.inputError]}
+                    placeholder="Enter your password"
+                    placeholderTextColor="#999"
+                    secureTextEntry
+                    autoComplete="password-new"
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    editable={!isLoading}
+                  />
+                )}
+              />
+              {errors.password && (
+                <Text style={styles.errorText}>{errors.password.message}</Text>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.button, isLoading && styles.buttonDisabled]}
+              onPress={handleSubmit(onSubmit)}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Sign Up</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Already have an account? </Text>
+              <Link href="/(auth)/login" asChild>
+                <TouchableOpacity disabled={isLoading}>
+                  <Text style={styles.link}>Sign In</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 24,
+  },
+  errorContainer: {
+    backgroundColor: '#FFF2F2',
+    borderWidth: 1,
+    borderColor: '#FF3B30',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorMessage: {
+    color: '#FF3B30',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  form: {
+    width: '100%',
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 8,
+  },
+  input: {
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#000',
+    backgroundColor: '#F9F9F9',
+  },
+  inputError: {
+    borderColor: '#FF3B30',
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  button: {
+    height: 50,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  footerText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  link: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  locationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  toggleText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  codeHelpText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 6,
+    fontStyle: 'italic',
+  },
+  requiredAsterisk: {
+    color: '#FF3B30',
+    fontWeight: '600',
+  },
+});

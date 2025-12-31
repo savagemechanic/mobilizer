@@ -322,6 +322,7 @@ model Organization {
   isVerified      Boolean   @default(false)
   isActive        Boolean   @default(true)
   memberCount     Int       @default(0)
+  inviteCode      String?   @unique
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -357,6 +358,7 @@ model Organization {
   @@index([movementId])
   @@index([parentId])
   @@index([isActive])
+  @@index([inviteCode])
   @@map("organizations")
 }
 
