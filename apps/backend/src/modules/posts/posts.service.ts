@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePostInput } from './dto/create-post.input';
 import { FeedFilterInput } from './dto/feed-filter.input';
@@ -17,48 +17,55 @@ export interface ShareResult {
 
 @Injectable()
 export class PostsService {
+  private readonly logger = new Logger(PostsService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async getFeed(userId: string, limit: number = 20, offset: number = 0, filter?: FeedFilterInput) {
-    // Get user's organizations
-    const memberships = await this.prisma.orgMembership.findMany({
-      where: { userId, isActive: true },
-      select: { orgId: true },
-    });
+    this.logger.log(`getFeed called with filter: ${JSON.stringify(filter)}`);
 
-    const orgIds = memberships.map((m) => m.orgId);
+    try {
+      // Get user's organizations
+      const memberships = await this.prisma.orgMembership.findMany({
+        where: { userId, isActive: true },
+        select: { orgId: true },
+      });
 
-    // Get posts from followed users and user's organizations
-    const following = await this.prisma.follow.findMany({
-      where: { followerId: userId },
-      select: { followingId: true },
-    });
+      const orgIds = memberships.map((m) => m.orgId);
 
-    const followingIds = following.map((f) => f.followingId);
+      // Get posts from followed users and user's organizations
+      const following = await this.prisma.follow.findMany({
+        where: { followerId: userId },
+        select: { followingId: true },
+      });
 
-    // Build where clause
-    const whereClause: any = {
-      isPublished: true,
-    };
+      const followingIds = following.map((f) => f.followingId);
 
-    // Apply location filter directly on posts (posts have their own location)
-    if (filter?.stateId) whereClause.stateId = filter.stateId;
-    if (filter?.lgaId) whereClause.lgaId = filter.lgaId;
-    if (filter?.wardId) whereClause.wardId = filter.wardId;
-    if (filter?.pollingUnitId) whereClause.pollingUnitId = filter.pollingUnitId;
+      // Build where clause
+      const whereClause: any = {
+        isPublished: true,
+      };
 
-    // If filtering by specific organization, only show posts from that org
-    if (filter?.orgId) {
-      whereClause.orgId = filter.orgId;
-    } else if (!filter?.stateId && !filter?.lgaId && !filter?.wardId && !filter?.pollingUnitId) {
-      // No location or org filters - show posts from followed users and user's organizations
-      whereClause.OR = [
-        { authorId: { in: [...followingIds, userId] } },
-        { orgId: { in: orgIds } },
-      ];
-    }
+      // Apply location filter directly on posts (posts have their own location)
+      if (filter?.stateId) whereClause.stateId = filter.stateId;
+      if (filter?.lgaId) whereClause.lgaId = filter.lgaId;
+      if (filter?.wardId) whereClause.wardId = filter.wardId;
+      if (filter?.pollingUnitId) whereClause.pollingUnitId = filter.pollingUnitId;
 
-    const posts = await this.prisma.post.findMany({
+      // If filtering by specific organization, only show posts from that org
+      if (filter?.orgId) {
+        whereClause.orgId = filter.orgId;
+      } else if (!filter?.stateId && !filter?.lgaId && !filter?.wardId && !filter?.pollingUnitId) {
+        // No location or org filters - show posts from followed users and user's organizations
+        whereClause.OR = [
+          { authorId: { in: [...followingIds, userId] } },
+          { orgId: { in: orgIds } },
+        ];
+      }
+
+      this.logger.log(`getFeed whereClause: ${JSON.stringify(whereClause)}`);
+
+      const posts = await this.prisma.post.findMany({
       where: whereClause,
       include: {
         author: {
@@ -128,6 +135,10 @@ export class PostsService {
       }
       return result;
     });
+    } catch (error) {
+      this.logger.error(`getFeed error: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   async getPolls(userId: string, limit: number = 20, offset: number = 0, organizationId?: string) {
