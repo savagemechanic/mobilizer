@@ -71,6 +71,15 @@ export class User {
 
   @Field(() => UserLocation, { nullable: true })
   location?: UserLocation;
+
+  @Field({ nullable: true, defaultValue: 0 })
+  postCount?: number;
+
+  @Field({ nullable: true, defaultValue: 0 })
+  followerCount?: number;
+
+  @Field({ nullable: true, defaultValue: 0 })
+  followingCount?: number;
 }
 
 @ObjectType()

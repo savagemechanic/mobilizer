@@ -41,6 +41,13 @@ export class UsersService {
             },
           },
         },
+        _count: {
+          select: {
+            posts: true,
+            followers: true,
+            following: true,
+          },
+        },
       },
     });
 
@@ -48,7 +55,12 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return user;
+    return {
+      ...user,
+      postCount: user._count.posts,
+      followerCount: user._count.followers,
+      followingCount: user._count.following,
+    };
   }
 
   async searchUsers(query: string, limit: number = 20, offset: number = 0) {
