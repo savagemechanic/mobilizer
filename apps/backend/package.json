@@ -27,7 +27,8 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:seed:full": "SEED_FULL_LOCATIONS=true ts-node prisma/seed.ts",
-    "prisma:seed:locations": "ts-node prisma/seeders/seed-locations-only.ts"
+    "prisma:seed:locations": "ts-node prisma/seeders/seed-locations-only.ts",
+    "prisma:seed:demo-posts": "ts-node prisma/seeders/seed-demo-posts.ts"
   },
   "dependencies": {
     "@apollo/server": "^4.10.0",

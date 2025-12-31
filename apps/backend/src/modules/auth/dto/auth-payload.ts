@@ -80,6 +80,9 @@ export class User {
 
   @Field({ nullable: true, defaultValue: 0 })
   followingCount?: number;
+
+  @Field({ nullable: true, defaultValue: false })
+  isFollowing?: boolean;
 }
 
 @ObjectType()

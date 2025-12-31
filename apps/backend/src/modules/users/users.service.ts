@@ -209,6 +209,19 @@ export class UsersService {
     return true;
   }
 
+  async isFollowing(followerId: string, followingId: string): Promise<boolean> {
+    const follow = await this.prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId,
+        },
+      },
+    });
+
+    return !!follow;
+  }
+
   async getFollowers(userId: string, limit: number = 20, offset: number = 0) {
     const followers = await this.prisma.follow.findMany({
       where: { followingId: userId },

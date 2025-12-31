@@ -40,7 +40,12 @@ export class ChatService {
                 firstName: true,
                 lastName: true,
                 displayName: true,
+                avatar: true,
               },
+            },
+            readReceipts: {
+              where: { userId },
+              select: { readAt: true },
             },
           },
         },
@@ -53,6 +58,11 @@ export class ChatService {
       ...conv,
       isGroup: conv.type === 'GROUP',
       creatorId: conv.participants[0]?.userId || userId,
+      messages: conv.messages.map((msg) => ({
+        ...msg,
+        isRead: msg.senderId === userId || msg.readReceipts.length > 0,
+        readAt: msg.readReceipts[0]?.readAt || null,
+      })),
     }));
   }
 
@@ -118,7 +128,7 @@ export class ChatService {
       throw new ForbiddenException('You are not a participant in this conversation');
     }
 
-    return this.prisma.message.findMany({
+    const messages = await this.prisma.message.findMany({
       where: { conversationId },
       include: {
         sender: {
@@ -131,21 +141,21 @@ export class ChatService {
           },
         },
         readReceipts: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-              },
-            },
-          },
+          where: { userId },
+          select: { readAt: true },
         },
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: offset,
     });
+
+    // Map messages to include isRead field
+    return messages.map((msg) => ({
+      ...msg,
+      isRead: msg.senderId === userId || msg.readReceipts.length > 0,
+      readAt: msg.readReceipts[0]?.readAt || null,
+    }));
   }
 
   async createConversation(userId: string, participantIds: string[], name?: string) {
@@ -274,10 +284,10 @@ export class ChatService {
       },
     });
 
-    for (const participant of otherParticipants) {
+    for (const p of otherParticipants) {
       await this.prisma.notification.create({
         data: {
-          userId: participant.userId,
+          userId: p.userId,
           type: 'MESSAGE_RECEIVED',
           title: 'New Message',
           message: 'You have a new message',
@@ -286,13 +296,29 @@ export class ChatService {
       });
     }
 
-    return message;
+    // Return with isRead field (sender's own message is always "read" by them)
+    return {
+      ...message,
+      isRead: false,
+      readAt: null,
+    };
   }
 
   async markAsRead(userId: string, messageId: string) {
     const message = await this.prisma.message.findUnique({
       where: { id: messageId },
-      include: { conversation: true },
+      include: {
+        conversation: true,
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            displayName: true,
+            avatar: true,
+          },
+        },
+      },
     });
 
     if (!message) {
@@ -343,7 +369,12 @@ export class ChatService {
       },
     });
 
-    return receipt;
+    // Return the message with isRead field
+    return {
+      ...message,
+      isRead: true,
+      readAt: receipt.readAt,
+    };
   }
 
   async markConversationAsRead(userId: string, conversationId: string) {
