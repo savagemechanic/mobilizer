@@ -36,7 +36,7 @@ export class EventEntity {
   virtualLink?: string;
 
   @Field({ nullable: true })
-  coverImage?: string;
+  banner?: string;
 
   @Field()
   creatorId: string;
