@@ -34,31 +34,13 @@ export class UsersResolver {
     };
   }
 
-  // Field resolver to determine if the current user is following this user
-  @ResolveField(() => Boolean, { nullable: true })
-  @UseGuards(GqlAuthGuard)
-  async isFollowing(
-    @Parent() user: any,
-    @CurrentUser() currentUser: any,
-  ): Promise<boolean> {
-    // If no authenticated user, return false
-    if (!currentUser || !currentUser.id) {
-      return false;
-    }
-
-    // User cannot follow themselves
-    if (currentUser.id === user.id) {
-      return false;
-    }
-
-    // Check if current user is following this user
-    return this.usersService.isFollowing(currentUser.id, user.id);
-  }
-
   @Query(() => User)
   @UseGuards(GqlAuthGuard)
-  async user(@Args('id') id: string) {
-    return this.usersService.findById(id);
+  async user(
+    @Args('id') id: string,
+    @CurrentUser() currentUser: any,
+  ) {
+    return this.usersService.findById(id, currentUser?.id);
   }
 
   @Query(() => [User])

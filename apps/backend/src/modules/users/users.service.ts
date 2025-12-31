@@ -6,7 +6,7 @@ import { UpdateProfileInput } from './dto/update-profile.input';
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  async findById(id: string) {
+  async findById(id: string, currentUserId?: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
@@ -55,11 +55,26 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    // Check if current user is following this user
+    let isFollowing = false;
+    if (currentUserId && currentUserId !== id) {
+      const follow = await this.prisma.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: currentUserId,
+            followingId: id,
+          },
+        },
+      });
+      isFollowing = !!follow;
+    }
+
     return {
       ...user,
       postCount: user._count.posts,
       followerCount: user._count.followers,
       followingCount: user._count.following,
+      isFollowing,
     };
   }
 
