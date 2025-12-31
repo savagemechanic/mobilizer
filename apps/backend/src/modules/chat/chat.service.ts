@@ -48,7 +48,12 @@ export class ChatService {
       orderBy: { updatedAt: 'desc' },
     });
 
-    return conversations;
+    // Map to GraphQL entity format
+    return conversations.map((conv) => ({
+      ...conv,
+      isGroup: conv.type === 'GROUP',
+      creatorId: conv.participants[0]?.userId || userId,
+    }));
   }
 
   async getConversation(userId: string, conversationId: string) {
@@ -90,7 +95,12 @@ export class ChatService {
       throw new NotFoundException('Conversation not found');
     }
 
-    return conversation;
+    // Map to GraphQL entity format
+    return {
+      ...conversation,
+      isGroup: conversation.type === 'GROUP',
+      creatorId: conversation.participants[0]?.userId || userId,
+    };
   }
 
   async getMessages(userId: string, conversationId: string, limit: number = 50, offset: number = 0) {
@@ -139,6 +149,42 @@ export class ChatService {
   }
 
   async createConversation(userId: string, participantIds: string[], name?: string) {
+    // For direct messages, check if conversation already exists
+    if (participantIds.length === 1) {
+      const existingConversation = await this.prisma.conversation.findFirst({
+        where: {
+          type: 'DIRECT',
+          AND: [
+            { participants: { some: { userId } } },
+            { participants: { some: { userId: participantIds[0] } } },
+          ],
+        },
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  displayName: true,
+                  avatar: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (existingConversation) {
+        return {
+          ...existingConversation,
+          isGroup: existingConversation.type === 'GROUP',
+          creatorId: userId,
+        };
+      }
+    }
+
     // Create conversation
     const conversation = await this.prisma.conversation.create({
       data: {
@@ -168,7 +214,12 @@ export class ChatService {
       },
     });
 
-    return conversation;
+    // Map to GraphQL entity format
+    return {
+      ...conversation,
+      isGroup: conversation.type === 'GROUP',
+      creatorId: userId,
+    };
   }
 
   async sendMessage(userId: string, input: SendMessageInput) {
