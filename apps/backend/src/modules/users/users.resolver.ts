@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args, ResolveField, Parent, Context } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, ResolveField, Parent } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateProfileInput } from './dto/update-profile.input';
@@ -36,12 +36,11 @@ export class UsersResolver {
 
   // Field resolver to determine if the current user is following this user
   @ResolveField(() => Boolean, { nullable: true })
+  @UseGuards(GqlAuthGuard)
   async isFollowing(
     @Parent() user: any,
-    @Context() context: any,
+    @CurrentUser() currentUser: any,
   ): Promise<boolean> {
-    const currentUser = context.req?.user;
-
     // If no authenticated user, return false
     if (!currentUser || !currentUser.id) {
       return false;
