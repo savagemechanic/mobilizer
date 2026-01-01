@@ -35,7 +35,7 @@ export class OrganizationsResolver {
   }
 
   @Query(() => OrganizationEntity, { nullable: true })
-  @UseGuards(GqlAuthGuard)
+  // No auth required - allows users to preview org before joining
   async organizationByCode(@Args('code') code: string) {
     return this.organizationsService.findByInviteCode(code);
   }
