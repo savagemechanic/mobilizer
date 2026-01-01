@@ -154,7 +154,8 @@ export class PushNotificationsService {
     const members = await this.prisma.orgMembership.findMany({
       where: {
         orgId,
-        isApproved: true,
+        approvedAt: { not: null },
+        isActive: true,
       },
       select: { userId: true },
     });

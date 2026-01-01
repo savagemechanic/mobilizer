@@ -121,11 +121,11 @@ export class PostsService {
 
     // Fetch membership info to get leader status
     const authorOrgPairs = [...new Set(postOrgIds.map(p => `${p.authorId}:${p.orgId}`))];
-    const memberships = await this.prisma.orgMembership.findMany({
+    const authorMemberships = await this.prisma.orgMembership.findMany({
       where: {
         OR: authorOrgPairs.map(pair => {
-          const [userId, orgId] = pair.split(':');
-          return { userId, orgId };
+          const [uId, oId] = pair.split(':');
+          return { userId: uId, orgId: oId };
         }),
         isActive: true,
       },
@@ -139,7 +139,7 @@ export class PostsService {
 
     // Create lookup map for memberships
     const membershipMap = new Map(
-      memberships.map(m => [`${m.userId}:${m.orgId}`, m])
+      authorMemberships.map(m => [`${m.userId}:${m.orgId}`, m])
     );
 
     // Transform to add hasVoted and userVotedOptionId to polls and isLiked to posts

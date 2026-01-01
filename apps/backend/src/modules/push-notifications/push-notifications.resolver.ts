@@ -1,7 +1,7 @@
 import { Resolver, Mutation, Args, Query } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { GqlAuthGuard } from '../../common/guards/gql-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PushNotificationsService } from './push-notifications.service';
 import {
   RegisterDeviceInput,
@@ -52,7 +52,7 @@ export class PushNotificationsResolver {
   ) {}
 
   @Mutation(() => DeviceRegistrationResult)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(GqlAuthGuard)
   async registerDevice(
     @CurrentUser() user: any,
     @Args('input') input: RegisterDeviceInput,
@@ -78,7 +78,7 @@ export class PushNotificationsResolver {
   }
 
   @Mutation(() => Boolean)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(GqlAuthGuard)
   async unregisterDevice(
     @CurrentUser() user: any,
     @Args('input') input: UnregisterDeviceInput,
@@ -87,25 +87,25 @@ export class PushNotificationsResolver {
   }
 
   @Mutation(() => Boolean)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(GqlAuthGuard)
   async unregisterAllDevices(@CurrentUser() user: any): Promise<boolean> {
     return this.pushNotificationsService.unregisterAllDevices(user.id);
   }
 
   @Query(() => [DeviceToken])
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(GqlAuthGuard)
   async myDevices(@CurrentUser() user: any): Promise<DeviceToken[]> {
     return this.pushNotificationsService.getActiveDevices(user.id);
   }
 
   @Query(() => Int)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(GqlAuthGuard)
   async myDeviceCount(@CurrentUser() user: any): Promise<number> {
     return this.pushNotificationsService.getDeviceCount(user.id);
   }
 
   @Mutation(() => Boolean)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(GqlAuthGuard)
   async updateDeviceLastUsed(
     @Args('token') token: string,
   ): Promise<boolean> {

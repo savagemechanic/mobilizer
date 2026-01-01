@@ -114,7 +114,8 @@ export class DailySummaryService {
     const memberships = await this.prisma.orgMembership.findMany({
       where: {
         userId,
-        isApproved: true,
+        approvedAt: { not: null },
+        isActive: true,
       },
       select: {
         orgId: true,
