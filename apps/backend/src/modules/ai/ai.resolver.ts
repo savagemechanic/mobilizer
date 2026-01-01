@@ -5,7 +5,7 @@ import { AiService } from './ai.service';
 import { ObjectType, Field } from '@nestjs/graphql';
 
 @ObjectType()
-class OrganizationSummary {
+class OrganizationAISummaryResponse {
   @Field()
   summary: string;
 
@@ -20,11 +20,11 @@ class OrganizationSummary {
 export class AiResolver {
   constructor(private readonly aiService: AiService) {}
 
-  @Query(() => OrganizationSummary)
+  @Query(() => OrganizationAISummaryResponse)
   @UseGuards(GqlAuthGuard)
   async organizationAISummary(
     @Args('orgId') orgId: string,
-  ): Promise<OrganizationSummary> {
+  ): Promise<OrganizationAISummaryResponse> {
     const [summary, suggestions] = await Promise.all([
       this.aiService.generateOrganizationSummary(orgId),
       this.aiService.generatePostSuggestions(orgId),
