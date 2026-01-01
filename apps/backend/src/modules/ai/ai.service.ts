@@ -151,13 +151,13 @@ export class AiService {
     // Most liked post
     const topPost = await this.prisma.post.findFirst({
       where: { orgId },
-      orderBy: { likesCount: 'desc' },
-      select: { content: true, likesCount: true },
+      orderBy: { likeCount: 'desc' },
+      select: { content: true, likeCount: true },
     });
 
-    if (topPost && topPost.likesCount > 0) {
+    if (topPost && topPost.likeCount > 0) {
       highlights.push(
-        `Most popular post received ${topPost.likesCount} likes`,
+        `Most popular post received ${topPost.likeCount} likes`,
       );
     }
 
@@ -165,10 +165,10 @@ export class AiService {
     const nextEvent = await this.prisma.event.findFirst({
       where: {
         orgId,
-        startDate: { gte: new Date() },
+        startTime: { gte: new Date() },
       },
-      orderBy: { startDate: 'asc' },
-      select: { title: true, startDate: true },
+      orderBy: { startTime: 'asc' },
+      select: { title: true, startTime: true },
     });
 
     if (nextEvent) {
