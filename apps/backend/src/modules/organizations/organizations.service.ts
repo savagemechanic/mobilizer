@@ -710,11 +710,23 @@ export class OrganizationsService {
         approvedAt: new Date(),
       },
       include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            displayName: true,
+            email: true,
+            avatar: true,
+          },
+        },
         organization: {
-          include: {
-            state: true,
-            lga: true,
-            ward: true,
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logo: true,
+            level: true,
           },
         },
       },

@@ -94,9 +94,15 @@ export default function JoinOrganizationScreen() {
       }
     },
     onError: (error) => {
-      const message = error.message.includes('Already a member')
-        ? 'You are already a member of this organization.'
-        : 'Failed to join organization. Please try again.';
+      console.error('Join error:', error.message);
+      let message = 'Failed to join organization. Please try again.';
+      if (error.message.includes('Already a member')) {
+        message = 'You are already a member of this organization.';
+      } else if (error.message.includes('Unauthorized') || error.message.includes('UNAUTHENTICATED')) {
+        message = 'Please log in to join an organization.';
+      } else if (error.message.includes('Invalid invite code')) {
+        message = 'Invalid invite code. Please check and try again.';
+      }
       Alert.alert('Error', message);
     },
   });
