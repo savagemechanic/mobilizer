@@ -83,7 +83,7 @@ export class AiService {
       this.prisma.event.count({
         where: {
           orgId,
-          startDate: { gte: now },
+          startTime: { gte: now },
         },
       }),
     ]);
@@ -91,13 +91,14 @@ export class AiService {
     // Get members
     const [totalMembers, newMembersLastWeek] = await Promise.all([
       this.prisma.orgMembership.count({
-        where: { orgId, isApproved: true },
+        where: { orgId, approvedAt: { not: null }, isActive: true },
       }),
       this.prisma.orgMembership.count({
         where: {
           orgId,
-          isApproved: true,
-          createdAt: { gte: oneWeekAgo },
+          approvedAt: { not: null },
+          isActive: true,
+          joinedAt: { gte: oneWeekAgo },
         },
       }),
     ]);

@@ -1,6 +1,6 @@
 import { Resolver, Query, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { GqlAuthGuard } from '../../common/guards/gql-auth.guard';
 import { AiService } from './ai.service';
 import { ObjectType, Field } from '@nestjs/graphql';
 
@@ -21,7 +21,7 @@ export class AiResolver {
   constructor(private readonly aiService: AiService) {}
 
   @Query(() => OrganizationSummary)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(GqlAuthGuard)
   async organizationAISummary(
     @Args('orgId') orgId: string,
   ): Promise<OrganizationSummary> {
