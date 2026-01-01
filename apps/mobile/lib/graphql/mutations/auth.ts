@@ -155,3 +155,49 @@ export const REFRESH_TOKEN = gql`
     }
   }
 `;
+
+export const GOOGLE_LOGIN = gql`
+  mutation GoogleLogin($input: GoogleLoginInput!) {
+    googleLogin(input: $input) {
+      accessToken
+      refreshToken
+      user {
+        id
+        email
+        firstName
+        lastName
+        middleName
+        displayName
+        avatar
+        bio
+        phoneNumber
+        isEmailVerified
+        isActive
+        isPlatformAdmin
+        createdAt
+        location {
+          state {
+            id
+            name
+            code
+          }
+          lga {
+            id
+            name
+            code
+          }
+          ward {
+            id
+            name
+            code
+          }
+          pollingUnit {
+            id
+            name
+            code
+          }
+        }
+      }
+    }
+  }
+`;

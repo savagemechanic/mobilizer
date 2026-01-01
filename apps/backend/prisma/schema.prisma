@@ -129,7 +129,7 @@ model User {
   id                String    @id @default(uuid())
   email             String    @unique
   phoneNumber       String?
-  password          String
+  password          String?   // Optional for social login users
   firstName         String
   lastName          String
   middleName        String?
@@ -151,6 +151,10 @@ model User {
   suspendedReason   String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+
+  // Social Login
+  googleId          String?   @unique
+  authProvider      String?   @default("email") // email, google, apple
 
   // Location
   countryId         String?
@@ -232,20 +236,6 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-model DeviceToken {
-  id        String   @id @default(uuid())
-  userId    String
-  token     String
-  platform  String   // ios, android, web
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, token])
-  @@index([userId])
-  @@map("device_tokens")
-}
 
 // ============================================
 // MOVEMENT MODEL (Top-level container for Support Groups)
@@ -768,6 +758,28 @@ model AuditLog {
   @@index([entityType])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================
+// DEVICE TOKENS FOR PUSH NOTIFICATIONS
+// ============================================
+
+model DeviceToken {
+  id          String    @id @default(uuid())
+  userId      String
+  token       String    @unique
+  platform    String    // ios, android, web
+  deviceName  String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastUsedAt  DateTime?
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("device_tokens")
 }
 
 // ============================================

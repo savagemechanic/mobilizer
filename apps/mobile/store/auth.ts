@@ -125,9 +125,21 @@ export const useAuthStore = create<AuthState>()(
           console.log('🔄 Restoring session...');
           set({ isLoading: true });
 
-          // Try to get tokens from SecureStore
-          const token = await SecureStore.getItemAsync('accessToken');
-          const refreshToken = await SecureStore.getItemAsync('refreshToken');
+          // Try to get tokens from SecureStore with individual try-catch
+          let token: string | null = null;
+          let refreshToken: string | null = null;
+
+          try {
+            token = await SecureStore.getItemAsync('accessToken');
+          } catch (e) {
+            console.warn('⚠️ Failed to get accessToken:', e);
+          }
+
+          try {
+            refreshToken = await SecureStore.getItemAsync('refreshToken');
+          } catch (e) {
+            console.warn('⚠️ Failed to get refreshToken:', e);
+          }
 
           console.log('🔑 Tokens found:', { hasToken: !!token, hasRefreshToken: !!refreshToken });
 
@@ -145,11 +157,22 @@ export const useAuthStore = create<AuthState>()(
           } else {
             // No tokens found
             console.log('ℹ️ No tokens found, user not logged in');
-            set({ isLoading: false });
+            set({
+              token: null,
+              refreshToken: null,
+              isAuthenticated: false,
+              isLoading: false,
+            });
           }
         } catch (error) {
           console.error('❌ Error restoring session:', error);
-          set({ isLoading: false });
+          // Ensure we always set isLoading to false
+          set({
+            token: null,
+            refreshToken: null,
+            isAuthenticated: false,
+            isLoading: false,
+          });
         }
       },
     }),

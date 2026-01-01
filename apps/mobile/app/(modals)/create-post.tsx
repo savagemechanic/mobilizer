@@ -10,16 +10,27 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { useMutation } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import { CREATE_POST, CreatePostInput } from '@/lib/graphql/mutations/feed';
+import { GET_MY_ORGANIZATIONS } from '@/lib/graphql/queries/organizations';
 import { useFeedStore } from '@/store/feed';
 import { useAuthStore } from '@/store/auth';
 import { Button, Avatar } from '@/components/ui';
+
+const LEVEL_LABELS: Record<string, string> = {
+  NATIONAL: 'National',
+  STATE: 'State',
+  LGA: 'LGA',
+  WARD: 'Ward',
+  POLLING_UNIT: 'Polling Unit',
+};
 
 export default function CreatePostModal() {
   const router = useRouter();
@@ -32,8 +43,12 @@ export default function CreatePostModal() {
   const [showPollForm, setShowPollForm] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
+  const [selectedOrg, setSelectedOrg] = useState<any>(null);
+  const [showOrgPicker, setShowOrgPicker] = useState(false);
 
   const [createPostMutation, { loading }] = useMutation(CREATE_POST);
+  const { data: orgsData } = useQuery(GET_MY_ORGANIZATIONS);
+  const organizations = orgsData?.myOrganizations || [];
 
   const authorName =
     user?.displayName || `${user?.firstName} ${user?.lastName}`.trim() || 'You';
@@ -129,6 +144,11 @@ export default function CreatePostModal() {
         type: 'TEXT',
       };
 
+      // Add organization if selected
+      if (selectedOrg?.id) {
+        input.orgId = selectedOrg.id;
+      }
+
       // Add media URLs (for now, just URIs - in production, upload to server first)
       if (selectedImages.length > 0) {
         input.mediaUrls = selectedImages; // TODO: Upload images and get URLs
@@ -192,7 +212,29 @@ export default function CreatePostModal() {
         {/* Author info */}
         <View style={styles.authorSection}>
           <Avatar uri={user?.avatar} name={authorName} size={44} />
-          <Text style={styles.authorName}>{authorName}</Text>
+          <View style={styles.authorInfo}>
+            <Text style={styles.authorName}>{authorName}</Text>
+            <TouchableOpacity
+              style={styles.orgSelector}
+              onPress={() => setShowOrgPicker(true)}
+              disabled={loading}
+            >
+              {selectedOrg ? (
+                <View style={styles.selectedOrgContainer}>
+                  <Ionicons name="location" size={14} color="#007AFF" />
+                  <Text style={styles.selectedOrgText} numberOfLines={1}>
+                    {selectedOrg.name} - {LEVEL_LABELS[selectedOrg.level] || selectedOrg.level}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.selectOrgPrompt}>
+                  <Ionicons name="globe-outline" size={14} color="#666" />
+                  <Text style={styles.selectOrgText}>Select where to post</Text>
+                </View>
+              )}
+              <Ionicons name="chevron-down" size={16} color="#666" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Content input */}
@@ -313,6 +355,66 @@ export default function CreatePostModal() {
           <ActivityIndicator size="large" color="#007AFF" />
         </View>
       )}
+
+      {/* Organization Picker Modal */}
+      <Modal
+        visible={showOrgPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowOrgPicker(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Organization</Text>
+            <TouchableOpacity onPress={() => setShowOrgPicker(false)}>
+              <Ionicons name="close" size={28} color="#000" />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={organizations}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.orgItem,
+                  selectedOrg?.id === item.id && styles.orgItemSelected,
+                ]}
+                onPress={() => {
+                  setSelectedOrg(item);
+                  setShowOrgPicker(false);
+                }}
+              >
+                <View style={styles.orgItemContent}>
+                  {item.logo ? (
+                    <Image source={{ uri: item.logo }} style={styles.orgLogo} />
+                  ) : (
+                    <View style={[styles.orgLogo, styles.orgLogoPlaceholder]}>
+                      <Text style={styles.orgLogoText}>{item.name?.charAt(0)}</Text>
+                    </View>
+                  )}
+                  <View style={styles.orgItemInfo}>
+                    <Text style={styles.orgItemName}>{item.name}</Text>
+                    <Text style={styles.orgItemLevel}>
+                      {LEVEL_LABELS[item.level] || item.level}
+                    </Text>
+                  </View>
+                </View>
+                {selectedOrg?.id === item.id && (
+                  <Ionicons name="checkmark" size={24} color="#007AFF" />
+                )}
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <View style={styles.emptyOrgs}>
+                <Text style={styles.emptyOrgsText}>No organizations found</Text>
+                <Text style={styles.emptyOrgsSubtext}>
+                  Join an organization to post to it
+                </Text>
+              </View>
+            }
+          />
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -349,16 +451,51 @@ const styles = StyleSheet.create({
   },
   authorSection: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 12,
+  },
+  authorInfo: {
+    flex: 1,
+    marginLeft: 12,
   },
   authorName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#000',
-    marginLeft: 12,
+    marginBottom: 6,
+  },
+  orgSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 16,
+    alignSelf: 'flex-start',
+  },
+  selectedOrgContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 4,
+  },
+  selectedOrgText: {
+    fontSize: 13,
+    color: '#007AFF',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  selectOrgPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  selectOrgText: {
+    fontSize: 13,
+    color: '#666',
+    marginLeft: 4,
   },
   input: {
     paddingHorizontal: 16,
@@ -467,5 +604,84 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#FFF',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+  orgItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  orgItemSelected: {
+    backgroundColor: '#F0F8FF',
+  },
+  orgItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  orgLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+  },
+  orgLogoPlaceholder: {
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  orgLogoText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  orgItemInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  orgItemName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 2,
+  },
+  orgItemLevel: {
+    fontSize: 13,
+    color: '#666',
+  },
+  emptyOrgs: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyOrgsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  emptyOrgsSubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });

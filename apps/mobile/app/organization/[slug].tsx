@@ -19,7 +19,8 @@ import { GET_ORGANIZATION_BY_SLUG, GET_MY_ORGANIZATIONS, GET_ORG_MEMBERS } from 
 import { JOIN_ORGANIZATION, LEAVE_ORGANIZATION, REGENERATE_INVITE_CODE } from '@/lib/graphql/mutations/organizations';
 import { useOrganizationsStore } from '@/store/organizations';
 import { useAuthStore } from '@/store/auth';
-import { Button } from '@/components/ui';
+import { Button, Avatar, LeaderBadge } from '@/components/ui';
+import AISummary from '@/components/organizations/AISummary';
 
 const LEVEL_LABELS: Record<string, string> = {
   NATIONAL: 'National',
@@ -73,6 +74,15 @@ export default function OrganizationDetailScreen() {
     variables: { orgId: organization?.id, limit: 1, isAdmin: true },
     skip: !organization?.id || !user?.id,
   });
+
+  // Fetch organization leaders
+  const { data: leadersData } = useQuery(GET_ORG_MEMBERS, {
+    variables: { orgId: organization?.id, limit: 10 },
+    skip: !organization?.id,
+  });
+
+  // Filter to only leaders
+  const leaders = leadersData?.getOrgMembers?.filter((m: any) => m.isLeader) || [];
 
   // Check if user is a member and admin
   useEffect(() => {
@@ -324,6 +334,69 @@ export default function OrganizationDetailScreen() {
           </View>
         )}
 
+        {/* AI Summary */}
+        {isMember && organization.id && (
+          <AISummary orgId={organization.id} />
+        )}
+
+        {/* Leaders Section */}
+        {leaders.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Leaders</Text>
+            <View style={styles.leadersContainer}>
+              {leaders.map((leader: any) => {
+                const leaderName = leader.user?.displayName ||
+                  `${leader.user?.firstName} ${leader.user?.lastName}`.trim() || 'Leader';
+
+                return (
+                  <TouchableOpacity
+                    key={leader.id}
+                    style={styles.leaderCard}
+                    onPress={() => router.push(`/user/${leader.userId}`)}
+                    activeOpacity={0.7}
+                  >
+                    <Avatar uri={leader.user?.avatar} name={leaderName} size={48} />
+                    <View style={styles.leaderInfo}>
+                      <View style={styles.leaderNameRow}>
+                        <Text style={styles.leaderName} numberOfLines={1}>{leaderName}</Text>
+                        <LeaderBadge level={leader.leaderLevel} size="small" />
+                      </View>
+                      <Text style={styles.leaderLevel}>
+                        {leader.leaderLevel ? `${leader.leaderLevel} Leader` : 'Leader'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* Quick Stats */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Statistics</Text>
+          <View style={styles.quickStats}>
+            <View style={styles.quickStatItem}>
+              <Ionicons name="people" size={24} color="#007AFF" />
+              <Text style={styles.quickStatValue}>{organization.memberCount.toLocaleString()}</Text>
+              <Text style={styles.quickStatLabel}>Members</Text>
+            </View>
+            <View style={styles.quickStatItem}>
+              <Ionicons name="star" size={24} color="#FFD700" />
+              <Text style={styles.quickStatValue}>{leaders.length}</Text>
+              <Text style={styles.quickStatLabel}>Leaders</Text>
+            </View>
+            <View style={styles.quickStatItem}>
+              <Ionicons name="calendar" size={24} color="#34C759" />
+              <Text style={styles.quickStatValue}>
+                {new Date(organization.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+              </Text>
+              <Text style={styles.quickStatLabel}>Founded</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Additional info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Information</Text>
@@ -570,5 +643,63 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     color: '#000',
+  },
+  // Leaders section styles
+  leadersContainer: {
+    gap: 12,
+  },
+  leaderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  leaderInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  leaderNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  leaderName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    flexShrink: 1,
+  },
+  leaderLevel: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 2,
+  },
+  // Quick stats styles
+  quickStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  quickStatItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  quickStatValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000',
+    marginTop: 8,
+  },
+  quickStatLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
   },
 });

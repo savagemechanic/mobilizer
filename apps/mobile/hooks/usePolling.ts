@@ -50,7 +50,7 @@ export function usePolling(
   } = options;
 
   const callbackRef = useRef(callback);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Update callback ref when it changes
   useEffect(() => {

@@ -3,6 +3,7 @@ import { UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginInput } from './dto/login.input';
 import { RegisterInput } from './dto/register.input';
+import { GoogleLoginInput } from './dto/google-login.input';
 import { AuthPayload, User } from './dto/auth-payload';
 import { UserRolesResponse } from './dto/user-roles.dto';
 import { GqlAuthGuard } from '../../common/guards/gql-auth.guard';
@@ -20,6 +21,11 @@ export class AuthResolver {
   @Mutation(() => AuthPayload)
   async login(@Args('input') input: LoginInput) {
     return this.authService.login(input);
+  }
+
+  @Mutation(() => AuthPayload)
+  async googleLogin(@Args('input') input: GoogleLoginInput) {
+    return this.authService.googleLogin(input);
   }
 
   @Mutation(() => AuthPayload)

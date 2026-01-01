@@ -68,7 +68,7 @@ export function Button({
                 styles.text,
                 styles[`${variant}Text`],
                 styles[`${size}Text`],
-                icon && styles.textWithIcon,
+                icon ? styles.textWithIcon : undefined,
                 textStyle,
               ]}
             >

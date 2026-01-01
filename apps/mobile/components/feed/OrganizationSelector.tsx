@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Avatar } from '@/components/ui';
 
 interface Organization {
@@ -29,11 +30,17 @@ export function OrganizationSelector({
   selectedOrg,
   onSelect,
 }: OrganizationSelectorProps) {
+  const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
 
   const handleSelect = (org: Organization | null) => {
     onSelect(org);
     setModalVisible(false);
+  };
+
+  const handleJoinByCode = () => {
+    setModalVisible(false);
+    router.push('/join-organization');
   };
 
   return (
@@ -118,6 +125,22 @@ export function OrganizationSelector({
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>No organizations joined yet</Text>
               </View>
+            }
+            ListFooterComponent={
+              <TouchableOpacity
+                style={styles.joinByCodeButton}
+                onPress={handleJoinByCode}
+                activeOpacity={0.7}
+              >
+                <View style={styles.joinByCodeIcon}>
+                  <Ionicons name="qr-code-outline" size={24} color="#007AFF" />
+                </View>
+                <View style={styles.orgInfo}>
+                  <Text style={styles.joinByCodeTitle}>Join by Code</Text>
+                  <Text style={styles.orgLevel}>Enter an invite code to join</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#999" />
+              </TouchableOpacity>
             }
           />
         </View>
@@ -212,5 +235,28 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#666',
+  },
+  joinByCodeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    backgroundColor: '#FAFAFA',
+  },
+  joinByCodeIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F0F8FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  joinByCodeTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#007AFF',
   },
 });

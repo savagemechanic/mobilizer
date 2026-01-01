@@ -21,7 +21,7 @@ import { RSVP_EVENT } from '@/lib/graphql/mutations/events';
 export default function EventsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'my'>('upcoming');
+  const [activeTab, setActiveTab] = useState<'my' | 'invitations'>('my');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
@@ -42,10 +42,10 @@ export default function EventsScreen() {
     optimisticCancelRSVP,
   } = useEventsStore();
 
-  // Query for all events
+  // Query for all events (invitations/upcoming)
   const { loading, error, refetch, fetchMore } = useQuery(GET_EVENTS, {
     variables: { limit, offset: 0 },
-    skip: activeTab !== 'upcoming',
+    skip: activeTab !== 'invitations',
     notifyOnNetworkStatusChange: true,
     onCompleted: (data) => {
       if (data?.events) {
@@ -89,7 +89,7 @@ export default function EventsScreen() {
 
   // Filter events based on search query
   const filteredEvents = useMemo(() => {
-    const dataToFilter = activeTab === 'upcoming' ? events : myEvents;
+    const dataToFilter = activeTab === 'invitations' ? events : myEvents;
 
     if (!searchQuery.trim()) {
       return dataToFilter;
@@ -108,7 +108,7 @@ export default function EventsScreen() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     resetPagination();
-    if (activeTab === 'upcoming') {
+    if (activeTab === 'invitations') {
       await refetch();
     } else {
       await refetchMyEvents();
@@ -117,7 +117,7 @@ export default function EventsScreen() {
 
   // Handle load more
   const handleLoadMore = useCallback(async () => {
-    if (!hasMore || loading || activeTab !== 'upcoming' || searchQuery) return;
+    if (!hasMore || loading || activeTab !== 'invitations' || searchQuery) return;
 
     try {
       const { data } = await fetchMore({
@@ -190,7 +190,7 @@ export default function EventsScreen() {
       <EventCard
         event={item}
         onPress={handleEventPress}
-        showRSVPButton={activeTab === 'upcoming'}
+        showRSVPButton={activeTab === 'invitations'}
         onRSVP={handleRSVP}
         onCancelRSVP={handleCancelRSVP}
         isAttending={isAttending(item.id)}
@@ -201,7 +201,7 @@ export default function EventsScreen() {
 
   // Render footer
   const renderFooter = useCallback(() => {
-    if (!hasMore || activeTab !== 'upcoming' || searchQuery) return null;
+    if (!hasMore || activeTab !== 'invitations' || searchQuery) return null;
 
     return (
       <View style={styles.footer}>
@@ -236,11 +236,11 @@ export default function EventsScreen() {
       <View style={styles.emptyContainer}>
         <Ionicons name="calendar-outline" size={64} color="#CCC" />
         <Text style={styles.emptyText}>
-          {activeTab === 'upcoming' ? 'No upcoming events' : 'No events in your calendar'}
+          {activeTab === 'invitations' ? 'No event invitations' : 'No events in your calendar'}
         </Text>
         <Text style={styles.emptySubtext}>
-          {activeTab === 'upcoming'
-            ? 'Check back later for new events'
+          {activeTab === 'invitations'
+            ? 'Check back later for new event invitations'
             : 'RSVP to events to add them to your calendar'}
         </Text>
       </View>
@@ -286,22 +286,22 @@ export default function EventsScreen() {
       {/* Tabs */}
       <View style={styles.tabs}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'upcoming' && styles.tabActive]}
-          onPress={() => setActiveTab('upcoming')}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.tabText, activeTab === 'upcoming' && styles.tabTextActive]}>
-            Upcoming
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           style={[styles.tab, activeTab === 'my' && styles.tabActive]}
           onPress={() => setActiveTab('my')}
           activeOpacity={0.7}
         >
           <Text style={[styles.tabText, activeTab === 'my' && styles.tabTextActive]}>
             My Events
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'invitations' && styles.tabActive]}
+          onPress={() => setActiveTab('invitations')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabText, activeTab === 'invitations' && styles.tabTextActive]}>
+            Invitations
           </Text>
         </TouchableOpacity>
       </View>

@@ -7,6 +7,9 @@ export const USER_SUMMARY_FRAGMENT = gql`
     lastName
     displayName
     avatar
+    email
+    isLeader
+    leaderLevel
   }
 `;
 

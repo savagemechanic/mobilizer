@@ -75,6 +75,7 @@ export class PostsService {
             lastName: true,
             displayName: true,
             avatar: true,
+            email: true,
           },
         },
         organization: {
@@ -113,6 +114,34 @@ export class PostsService {
       skip: offset,
     });
 
+    // Get org IDs for posts that have organizations
+    const postOrgIds = posts
+      .filter((p) => p.orgId)
+      .map((p) => ({ orgId: p.orgId!, authorId: p.authorId }));
+
+    // Fetch membership info to get leader status
+    const authorOrgPairs = [...new Set(postOrgIds.map(p => `${p.authorId}:${p.orgId}`))];
+    const memberships = await this.prisma.orgMembership.findMany({
+      where: {
+        OR: authorOrgPairs.map(pair => {
+          const [userId, orgId] = pair.split(':');
+          return { userId, orgId };
+        }),
+        isActive: true,
+      },
+      select: {
+        userId: true,
+        orgId: true,
+        isLeader: true,
+        leaderLevel: true,
+      },
+    });
+
+    // Create lookup map for memberships
+    const membershipMap = new Map(
+      memberships.map(m => [`${m.userId}:${m.orgId}`, m])
+    );
+
     // Transform to add hasVoted and userVotedOptionId to polls and isLiked to posts
     return posts.map((post) => {
       const result: any = { ...post };
@@ -120,6 +149,18 @@ export class PostsService {
       // Add isLiked field
       result.isLiked = (post as any).likes?.length > 0;
       delete result.likes; // Remove the likes array from response
+
+      // Add leader info to author if post has organization
+      if (post.orgId && result.author) {
+        const membership = membershipMap.get(`${post.authorId}:${post.orgId}`);
+        if (membership) {
+          result.author = {
+            ...result.author,
+            isLeader: membership.isLeader,
+            leaderLevel: membership.leaderLevel,
+          };
+        }
+      }
 
       if (post.poll) {
         const userVotes = (post.poll as any).votes || [];

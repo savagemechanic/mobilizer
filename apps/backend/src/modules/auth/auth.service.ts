@@ -235,6 +235,119 @@ export class AuthService {
     return true;
   }
 
+  /**
+   * Google Sign-In - Handles authentication with Google ID token
+   * The mobile app sends the user info from Google Sign-In
+   */
+  async googleLogin(googleUserInfo: {
+    googleId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string;
+  }): Promise<AuthPayload> {
+    const { googleId, email, firstName, lastName, avatar } = googleUserInfo;
+
+    // First, check if user exists with this googleId
+    let user = await this.prisma.user.findUnique({
+      where: { googleId },
+      include: {
+        country: true,
+        state: true,
+        lga: true,
+        ward: true,
+        pollingUnit: true,
+      },
+    });
+
+    if (!user) {
+      // Check if a user exists with this email (might want to link accounts)
+      const existingEmailUser = await this.prisma.user.findUnique({
+        where: { email },
+        include: {
+          country: true,
+          state: true,
+          lga: true,
+          ward: true,
+          pollingUnit: true,
+        },
+      });
+
+      if (existingEmailUser) {
+        // Link Google account to existing email account
+        user = await this.prisma.user.update({
+          where: { id: existingEmailUser.id },
+          data: {
+            googleId,
+            authProvider: existingEmailUser.authProvider === 'email' ? 'email,google' : existingEmailUser.authProvider,
+            avatar: existingEmailUser.avatar || avatar, // Keep existing avatar if set
+            isEmailVerified: true, // Google verifies email
+          },
+          include: {
+            country: true,
+            state: true,
+            lga: true,
+            ward: true,
+            pollingUnit: true,
+          },
+        });
+      } else {
+        // Create new user with Google account
+        user = await this.prisma.user.create({
+          data: {
+            email,
+            googleId,
+            firstName,
+            lastName,
+            displayName: `${firstName} ${lastName}`,
+            avatar,
+            authProvider: 'google',
+            isEmailVerified: true, // Google verifies email
+            isActive: true,
+          },
+          include: {
+            country: true,
+            state: true,
+            lga: true,
+            ward: true,
+            pollingUnit: true,
+          },
+        });
+      }
+    } else {
+      // Update last login and avatar if changed
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          lastLoginAt: new Date(),
+          avatar: user.avatar || avatar, // Update avatar if not set
+        },
+        include: {
+          country: true,
+          state: true,
+          lga: true,
+          ward: true,
+          pollingUnit: true,
+        },
+      });
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is inactive');
+    }
+
+    // Generate tokens
+    const tokens = await this.generateTokens(user.id, user.email);
+
+    // Store refresh token
+    await this.storeRefreshToken(user.id, tokens.refreshToken);
+
+    return {
+      ...tokens,
+      user: this.mapUserToDto(user),
+    };
+  }
+
   async me(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

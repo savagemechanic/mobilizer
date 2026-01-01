@@ -240,7 +240,7 @@ export default function FeedScreen() {
       } catch (error) {
         console.error('Error liking post:', error);
         // Revert optimistic update
-        optimisticLike(postId, post.isLiked);
+        optimisticLike(postId, post.isLiked ?? false);
       }
     },
     [posts, likePostMutation, optimisticLike]
@@ -428,14 +428,18 @@ export default function FeedScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={styles.headerTitle}>Feed</Text>
-        {orgsData?.myOrganizations && (
-          <OrganizationSelector
-            organizations={orgsData.myOrganizations}
-            selectedOrg={selectedOrg}
-            onSelect={handleOrgSelect}
-          />
-        )}
+        <TouchableOpacity
+          style={styles.qrCodeButton}
+          onPress={() => router.push('/join-organization')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="qr-code-outline" size={24} color="#007AFF" />
+        </TouchableOpacity>
+        <OrganizationSelector
+          organizations={orgsData?.myOrganizations || []}
+          selectedOrg={selectedOrg}
+          onSelect={handleOrgSelect}
+        />
       </View>
 
       {/* Location Circles */}
@@ -511,10 +515,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#000',
+  qrCodeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F0F8FF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   listContent: {
     flexGrow: 1,

@@ -25,6 +25,10 @@ import { MovementsModule } from './modules/movements/movements.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 import { LocationsModule } from './modules/locations/locations.module';
+import { UploadModule } from './modules/upload/upload.module';
+import { PushNotificationsModule } from './modules/push-notifications/push-notifications.module';
+import { JobsModule } from './jobs/jobs.module';
+import { AiModule } from './modules/ai/ai.module';
 
 @Module({
   imports: [
@@ -65,6 +69,10 @@ import { LocationsModule } from './modules/locations/locations.module';
     AdminModule,
     PlatformAdminModule,
     LocationsModule,
+    UploadModule,
+    PushNotificationsModule,
+    JobsModule,
+    AiModule,
   ],
   providers: [PrismaService],
 })

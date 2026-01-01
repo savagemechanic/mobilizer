@@ -13,8 +13,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation } from '@apollo/client';
 import { useAuthStore } from '@/store/auth';
-import { Avatar, Button } from '@/components/ui';
+import { Avatar, Button, LeaderBadge } from '@/components/ui';
 import { GET_USER } from '@/lib/graphql/queries/users';
+import { GET_USER_MEMBERSHIPS } from '@/lib/graphql/queries/organizations';
 import { CREATE_CONVERSATION } from '@/lib/graphql/mutations/chat';
 import { FOLLOW_USER, UNFOLLOW_USER } from '@/lib/graphql/mutations/users';
 import { User } from '@/types';
@@ -29,6 +30,17 @@ export default function UserProfileScreen() {
     variables: { id },
     skip: !id,
   });
+
+  // Fetch user's memberships to check leader status
+  const { data: membershipsData } = useQuery(GET_USER_MEMBERSHIPS, {
+    variables: { userId: id },
+    skip: !id,
+  });
+
+  // Find if user is a leader in any organization
+  const leaderMembership = membershipsData?.userMemberships?.find(
+    (m: any) => m.isLeader
+  );
 
   const [createConversation, { loading: creatingConversation }] = useMutation(
     CREATE_CONVERSATION,
@@ -150,7 +162,12 @@ export default function UserProfileScreen() {
         {/* Profile Info */}
         <View style={styles.profileSection}>
           <Avatar uri={user.avatar} name={userName} size={100} />
-          <Text style={styles.userName}>{userName}</Text>
+          <View style={styles.userNameRow}>
+            <Text style={styles.userName}>{userName}</Text>
+            {leaderMembership && (
+              <LeaderBadge level={leaderMembership.leaderLevel} size="large" />
+            )}
+          </View>
           <Text style={styles.userEmail}>{user.email}</Text>
 
           {user.bio && <Text style={styles.userBio}>{user.bio}</Text>}
@@ -353,11 +370,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 16,
   },
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+  },
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#000',
-    marginTop: 16,
     textAlign: 'center',
   },
   userEmail: {

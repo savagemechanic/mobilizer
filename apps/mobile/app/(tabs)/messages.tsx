@@ -14,7 +14,7 @@ import { useQuery } from '@apollo/client';
 import { useAuthStore } from '@/store/auth';
 import { useChatStore } from '@/store/chat';
 import { GET_CONVERSATIONS } from '@/lib/graphql/queries/chat';
-import { Avatar, SearchInput } from '@/components/ui';
+import { Avatar, SearchInput, LeaderBadge } from '@/components/ui';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Conversation {
@@ -29,6 +29,8 @@ interface Conversation {
       lastName: string;
       displayName?: string;
       avatar?: string;
+      isLeader?: boolean;
+      leaderLevel?: string;
     };
   }>;
   messages?: Array<{
@@ -87,6 +89,21 @@ export default function MessagesScreen() {
       return otherParticipant?.user?.avatar;
     }
     return undefined;
+  };
+
+  const getOtherParticipantLeaderInfo = (conversation: Conversation) => {
+    if (!conversation.isGroup) {
+      const otherParticipant = conversation.participants?.find(
+        (p) => p.userId !== currentUser?.id
+      );
+      if (otherParticipant?.user?.isLeader) {
+        return {
+          isLeader: true,
+          leaderLevel: otherParticipant.user.leaderLevel,
+        };
+      }
+    }
+    return null;
   };
 
   const getLastMessage = (conversation: Conversation) => {
@@ -202,6 +219,7 @@ export default function MessagesScreen() {
             const lastMessage = getLastMessage(item);
             const lastMessageTime = getLastMessageTime(item);
             const unread = unreadCounts[item.id] || 0;
+            const leaderInfo = getOtherParticipantLeaderInfo(item);
 
             return (
               <TouchableOpacity
@@ -219,15 +237,20 @@ export default function MessagesScreen() {
                 </View>
                 <View style={styles.conversationInfo}>
                   <View style={styles.conversationHeader}>
-                    <Text
-                      style={[
-                        styles.conversationName,
-                        unread > 0 && styles.conversationNameUnread,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {conversationName}
-                    </Text>
+                    <View style={styles.conversationNameRow}>
+                      <Text
+                        style={[
+                          styles.conversationName,
+                          unread > 0 && styles.conversationNameUnread,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {conversationName}
+                      </Text>
+                      {leaderInfo && (
+                        <LeaderBadge level={leaderInfo.leaderLevel} size="small" />
+                      )}
+                    </View>
                     {lastMessageTime && (
                       <Text
                         style={[
@@ -373,12 +396,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  conversationName: {
+  conversationNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     flex: 1,
+  },
+  conversationName: {
     fontSize: 17,
     fontWeight: '500',
     color: '#000',
-    marginRight: 8,
+    flexShrink: 1,
   },
   conversationNameUnread: {
     fontWeight: '700',

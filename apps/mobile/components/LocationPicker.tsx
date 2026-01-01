@@ -180,8 +180,8 @@ export default function LocationPicker({
     });
   };
 
-  // Format label with code
-  const formatLabel = (item: LocationOption) => `${item.code} - ${item.name}`;
+  // Format label - show full name only
+  const formatLabel = (item: LocationOption) => item.name;
 
   return (
     <View style={styles.container}>

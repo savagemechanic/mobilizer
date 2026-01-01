@@ -8,15 +8,19 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  ActionSheetIOS,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useMutation } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '@/store/auth';
 import { Avatar } from '@/components/ui';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import { UPDATE_PROFILE } from '@/lib/graphql/mutations/users';
+import { GET_PRESIGNED_UPLOAD_URL, CHECK_UPLOAD_CONFIGURED } from '@/lib/graphql/mutations/upload';
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -29,6 +33,8 @@ export default function EditProfileScreen() {
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || '');
+  const [newAvatarUri, setNewAvatarUri] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Location state - initialized from user data
   const initialLocation = useMemo<LocationValue>(() => ({
@@ -54,11 +60,130 @@ export default function EditProfileScreen() {
     },
   });
 
+  // Check if upload is configured
+  const { data: uploadConfigData } = useQuery(CHECK_UPLOAD_CONFIGURED);
+  const isUploadConfigured = uploadConfigData?.uploadConfigured ?? false;
+
+  const [getPresignedUrl] = useMutation(GET_PRESIGNED_UPLOAD_URL);
+
+  // Upload image to S3
+  const uploadImageToS3 = async (uri: string): Promise<string | null> => {
+    try {
+      // Get file info
+      const fileName = uri.split('/').pop() || 'avatar.jpg';
+      const match = /\.(\w+)$/.exec(fileName);
+      const fileType = match ? `image/${match[1]}` : 'image/jpeg';
+
+      // Get presigned URL
+      const { data } = await getPresignedUrl({
+        variables: {
+          type: 'avatar',
+          fileName,
+          contentType: fileType,
+        },
+      });
+
+      if (!data?.getPresignedUploadUrl) {
+        throw new Error('Failed to get upload URL');
+      }
+
+      const { uploadUrl, fileUrl } = data.getPresignedUploadUrl;
+
+      // Fetch the image as blob
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      // Upload to S3
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: blob,
+        headers: {
+          'Content-Type': fileType,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload image');
+      }
+
+      return fileUrl;
+    } catch (error) {
+      console.error('Upload error:', error);
+      return null;
+    }
+  };
+
   const handleLocationChange = (newLocation: LocationValue) => {
     setLocation(newLocation);
   };
 
-  const handleSave = () => {
+  // Handle change photo
+  const handleChangePhoto = () => {
+    const options = ['Take Photo', 'Choose from Library', 'Cancel'];
+    const cancelButtonIndex = 2;
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options,
+          cancelButtonIndex,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 0) {
+            launchCamera();
+          } else if (buttonIndex === 1) {
+            launchLibrary();
+          }
+        }
+      );
+    } else {
+      // Android: Show Alert as ActionSheet alternative
+      Alert.alert('Change Photo', 'Choose an option', [
+        { text: 'Take Photo', onPress: launchCamera },
+        { text: 'Choose from Library', onPress: launchLibrary },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  };
+
+  const launchCamera = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Required', 'Camera access is required to take a photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      setNewAvatarUri(result.assets[0].uri);
+    }
+  };
+
+  const launchLibrary = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Required', 'Photo library access is required to choose a photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]) {
+      setNewAvatarUri(result.assets[0].uri);
+    }
+  };
+
+  const handleSave = async () => {
     const input: any = {};
 
     if (firstName !== user?.firstName) input.firstName = firstName;
@@ -73,6 +198,34 @@ export default function EditProfileScreen() {
     if (location.lgaId) input.lgaId = location.lgaId;
     if (location.wardId) input.wardId = location.wardId;
     if (location.pollingUnitId) input.pollingUnitId = location.pollingUnitId;
+
+    // Handle new avatar if selected
+    if (newAvatarUri) {
+      if (isUploadConfigured) {
+        setUploadingPhoto(true);
+        try {
+          const avatarUrl = await uploadImageToS3(newAvatarUri);
+          if (avatarUrl) {
+            input.avatar = avatarUrl;
+          } else {
+            Alert.alert('Upload Failed', 'Could not upload photo. Please try again.');
+            setUploadingPhoto(false);
+            return;
+          }
+        } catch (error) {
+          Alert.alert('Upload Error', 'Failed to upload photo.');
+          setUploadingPhoto(false);
+          return;
+        }
+        setUploadingPhoto(false);
+      } else {
+        Alert.alert(
+          'Upload Not Available',
+          'Photo upload is not configured. Your other profile changes will be saved.',
+          [{ text: 'OK' }]
+        );
+      }
+    }
 
     if (Object.keys(input).length === 0) {
       Alert.alert('No Changes', 'No changes were made to your profile');
@@ -104,10 +257,26 @@ export default function EditProfileScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
-          <Avatar uri={user?.avatar} name={userName} size={100} />
-          <TouchableOpacity style={styles.changePhotoButton}>
-            <Text style={styles.changePhotoText}>Change Photo</Text>
+          <Avatar uri={newAvatarUri || user?.avatar} name={userName} size={100} />
+          <TouchableOpacity
+            style={styles.changePhotoButton}
+            onPress={handleChangePhoto}
+            disabled={uploadingPhoto}
+          >
+            {uploadingPhoto ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <Text style={styles.changePhotoText}>Change Photo</Text>
+            )}
           </TouchableOpacity>
+          {newAvatarUri && (
+            <TouchableOpacity
+              style={styles.removePhotoButton}
+              onPress={() => setNewAvatarUri(null)}
+            >
+              <Text style={styles.removePhotoText}>Remove</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Form Fields */}
@@ -257,6 +426,14 @@ const styles = StyleSheet.create({
   changePhotoText: {
     fontSize: 16,
     color: '#007AFF',
+    fontWeight: '500',
+  },
+  removePhotoButton: {
+    marginTop: 8,
+  },
+  removePhotoText: {
+    fontSize: 14,
+    color: '#FF3B30',
     fontWeight: '500',
   },
   formSection: {

@@ -3,15 +3,28 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@apollo/client';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
-import { Avatar } from '@/components/ui';
+import { Avatar, LeaderBadge } from '@/components/ui';
+import { GET_USER_MEMBERSHIPS } from '@/lib/graphql/queries/organizations';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
   const { theme, setTheme } = useUIStore();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  // Fetch user's memberships to check leader status
+  const { data: membershipsData } = useQuery(GET_USER_MEMBERSHIPS, {
+    variables: { userId: user?.id },
+    skip: !user?.id,
+  });
+
+  // Find if user is a leader in any organization
+  const leaderMembership = membershipsData?.userMemberships?.find(
+    (m: any) => m.isLeader
+  );
 
   const userName = user?.displayName || `${user?.firstName} ${user?.lastName}`.trim() || 'User';
 
@@ -35,7 +48,12 @@ export default function ProfileScreen() {
       {/* Profile Info */}
       <View style={styles.profileSection}>
         <Avatar uri={user?.avatar} name={userName} size={80} />
-        <Text style={styles.userName}>{userName}</Text>
+        <View style={styles.userNameRow}>
+          <Text style={styles.userName}>{userName}</Text>
+          {leaderMembership && (
+            <LeaderBadge level={leaderMembership.leaderLevel} size="large" />
+          )}
+        </View>
         <Text style={styles.userEmail}>{user?.email}</Text>
       </View>
 
@@ -120,11 +138,16 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     marginBottom: 16,
   },
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+  },
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#000',
-    marginTop: 16,
   },
   userEmail: {
     fontSize: 15,

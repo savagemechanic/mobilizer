@@ -17,7 +17,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation } from '@apollo/client';
 import { useAuthStore } from '@/store/auth';
 import { useChatStore } from '@/store/chat';
-import { Avatar } from '@/components/ui';
+import { Avatar, LeaderBadge } from '@/components/ui';
 import { GET_MESSAGES, GET_CONVERSATION } from '@/lib/graphql/queries/chat';
 import { SEND_MESSAGE, MARK_CONVERSATION_AS_READ } from '@/lib/graphql/mutations/chat';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
@@ -49,6 +49,8 @@ interface Participant {
     lastName: string;
     displayName?: string;
     avatar?: string;
+    isLeader?: boolean;
+    leaderLevel?: string;
   };
 }
 
@@ -218,6 +220,21 @@ export default function ConversationScreen() {
     return otherParticipant?.user?.avatar;
   };
 
+  // Get leader info for 1-1 conversation
+  const getOtherParticipantLeaderInfo = (): { isLeader: boolean; leaderLevel?: string } | null => {
+    if (conversation?.isGroup) return null;
+    const otherParticipant = conversation?.participants?.find(
+      (p) => p.userId !== currentUser?.id
+    );
+    if (otherParticipant?.user?.isLeader) {
+      return {
+        isLeader: true,
+        leaderLevel: otherParticipant.user.leaderLevel,
+      };
+    }
+    return null;
+  };
+
   // Format message time
   const formatMessageTime = (dateStr: string): string => {
     const date = new Date(dateStr);
@@ -369,6 +386,7 @@ export default function ConversationScreen() {
   const title = getConversationTitle();
   const subtitle = getSubtitle();
   const otherAvatar = getOtherParticipantAvatar();
+  const leaderInfo = getOtherParticipantLeaderInfo();
 
   return (
     <KeyboardAvoidingView
@@ -391,9 +409,14 @@ export default function ConversationScreen() {
             />
           ) : null}
           <View style={styles.headerInfo}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {title}
-            </Text>
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {title}
+              </Text>
+              {leaderInfo && (
+                <LeaderBadge level={leaderInfo.leaderLevel} size="small" />
+              )}
+            </View>
             {subtitle && (
               <Text style={styles.headerSubtitle}>{subtitle}</Text>
             )}
@@ -486,10 +509,16 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 10,
   },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   headerTitle: {
     fontSize: 17,
     fontWeight: '600',
     color: '#000',
+    flexShrink: 1,
   },
   headerSubtitle: {
     fontSize: 13,

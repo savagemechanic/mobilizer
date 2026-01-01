@@ -11,7 +11,7 @@ import {
   Image,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLazyQuery, useMutation } from '@apollo/client';
 import { GET_ORGANIZATION_BY_CODE, GET_MY_ORGANIZATIONS } from '@/lib/graphql/queries/organizations';
@@ -37,6 +37,8 @@ const LEVEL_COLORS: Record<string, string> = {
 
 export default function JoinOrganizationScreen() {
   const router = useRouter();
+  const { onboarding } = useLocalSearchParams();
+  const isOnboarding = onboarding === 'true';
   const [code, setCode] = useState('');
   const [previewOrg, setPreviewOrg] = useState<Organization | null>(null);
 
@@ -59,21 +61,37 @@ export default function JoinOrganizationScreen() {
     refetchQueries: [{ query: GET_MY_ORGANIZATIONS }],
     onCompleted: (data) => {
       const org = data?.joinOrganizationByCode?.organization;
-      Alert.alert(
-        'Joined Successfully',
-        `You are now a member of ${org?.name || 'the organization'}!`,
-        [
-          {
-            text: 'View Organization',
-            onPress: () => router.replace(`/organization/${org?.slug}`),
-          },
-          {
-            text: 'Go Back',
-            onPress: () => router.back(),
-            style: 'cancel',
-          },
-        ]
-      );
+
+      if (isOnboarding) {
+        // In onboarding mode, go directly to main app
+        Alert.alert(
+          'Welcome!',
+          `You've joined ${org?.name || 'the organization'}. Let's get started!`,
+          [
+            {
+              text: 'Get Started',
+              onPress: () => router.replace('/(tabs)'),
+            },
+          ]
+        );
+      } else {
+        // Normal mode - offer choice
+        Alert.alert(
+          'Joined Successfully',
+          `You are now a member of ${org?.name || 'the organization'}!`,
+          [
+            {
+              text: 'View Organization',
+              onPress: () => router.replace(`/organization/${org?.slug}`),
+            },
+            {
+              text: 'Go Back',
+              onPress: () => router.back(),
+              style: 'cancel',
+            },
+          ]
+        );
+      }
     },
     onError: (error) => {
       const message = error.message.includes('Already a member')
@@ -119,14 +137,20 @@ export default function JoinOrganizationScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Join by Code</Text>
+        {isOnboarding ? (
+          <View style={styles.headerSpacer} />
+        ) : (
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+        )}
+        <Text style={styles.headerTitle}>
+          {isOnboarding ? 'Join a Support Group' : 'Join by Code'}
+        </Text>
         <View style={styles.headerSpacer} />
       </View>
 

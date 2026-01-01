@@ -16,6 +16,7 @@ interface LocationCirclesProps {
   circles: LocationCircle[];
   onCirclePress: (circle: LocationCircle) => void;
   activeLevel?: OrgLevel;
+  onInfoPress?: () => void;
 }
 
 const CIRCLE_SIZES = {
@@ -32,25 +33,29 @@ const LEVEL_LABELS = {
   POLLING_UNIT: 'PU',
 };
 
+// All levels use the same blue color
+const UNIFIED_COLOR = '#007AFF';
 const LEVEL_COLORS = {
-  STATE: '#007AFF',
-  LGA: '#34C759',
-  WARD: '#FF9500',
-  POLLING_UNIT: '#FF3B30',
+  STATE: UNIFIED_COLOR,
+  LGA: UNIFIED_COLOR,
+  WARD: UNIFIED_COLOR,
+  POLLING_UNIT: UNIFIED_COLOR,
 };
 
 export default function LocationCircles({
   circles,
   onCirclePress,
   activeLevel,
+  onInfoPress,
 }: LocationCirclesProps) {
   return (
     <View style={styles.container}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <View style={styles.headerRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
         {circles.map((circle) => {
           const size = CIRCLE_SIZES[circle.level];
           const color = LEVEL_COLORS[circle.level];
@@ -100,7 +105,17 @@ export default function LocationCircles({
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+        </ScrollView>
+        {onInfoPress && (
+          <TouchableOpacity
+            style={styles.infoButton}
+            onPress={onInfoPress}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="information-circle-outline" size={24} color="#007AFF" />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -112,10 +127,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   scrollContent: {
     paddingHorizontal: 12,
+    paddingRight: 8,
     gap: 12,
     alignItems: 'center',
+    flex: 1,
+  },
+  infoButton: {
+    padding: 8,
+    marginRight: 8,
   },
   circleContainer: {
     alignItems: 'center',

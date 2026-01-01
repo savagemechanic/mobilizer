@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Link } from 'expo-router';
 import { useMutation } from '@apollo/client';
 import { useForm, Controller } from 'react-hook-form';
@@ -17,6 +19,7 @@ import { z } from 'zod';
 import { LOGIN } from '@/lib/graphql/mutations/auth';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -27,12 +30,27 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login } = useAuthStore();
+  const { login, isAuthenticated } = useAuthStore();
   const { showToast } = useUIStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [loginMutation] = useMutation(LOGIN);
+  const { promptAsync: googleSignIn, isLoading: googleLoading, error: googleError } = useGoogleAuth();
+
+  // Navigate when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace('/(tabs)');
+    }
+  }, [isAuthenticated]);
+
+  // Show Google errors
+  useEffect(() => {
+    if (googleError) {
+      setError(googleError);
+    }
+  }, [googleError]);
 
   const {
     control,
@@ -168,12 +186,35 @@ export default function LoginScreen() {
           <TouchableOpacity
             style={[styles.button, isLoading && styles.buttonDisabled]}
             onPress={handleSubmit(onSubmit)}
-            disabled={isLoading}
+            disabled={isLoading || googleLoading}
           >
             {isLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.buttonText}>Sign In</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Google Sign-In Button */}
+          <TouchableOpacity
+            style={[styles.googleButton, googleLoading && styles.buttonDisabled]}
+            onPress={googleSignIn}
+            disabled={isLoading || googleLoading}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color="#000" />
+            ) : (
+              <>
+                <Ionicons name="logo-google" size={20} color="#DB4437" />
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </>
             )}
           </TouchableOpacity>
 
@@ -276,6 +317,38 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E5EA',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: '#666',
+    fontSize: 14,
+  },
+  googleButton: {
+    height: 50,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    gap: 12,
+  },
+  googleButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '500',
   },
   footer: {
     flexDirection: 'row',

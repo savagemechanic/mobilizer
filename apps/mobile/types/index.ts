@@ -24,6 +24,9 @@ export interface User {
   followerCount?: number;
   followingCount?: number;
   isFollowing?: boolean;
+  // Contextual leader info (populated when user is in org context)
+  isLeader?: boolean;
+  leaderLevel?: string;
 }
 
 export interface UserLocation {
