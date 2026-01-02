@@ -44,9 +44,12 @@ export default function JoinOrganizationScreen() {
   const [previewOrg, setPreviewOrg] = useState<Organization | null>(null);
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
+  console.log('🔐 JoinOrg: Auth state:', { isAuthenticated, authLoading });
+
   // Only authenticated users can access this page
   // Redirect to welcome screen if not logged in
   if (!authLoading && !isAuthenticated) {
+    console.log('🔐 JoinOrg: Not authenticated, redirecting to welcome');
     return <Redirect href="/" />;
   }
 
