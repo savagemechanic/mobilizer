@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,13 @@ import {
   Image,
   Alert,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLazyQuery, useMutation } from '@apollo/client';
 import { GET_ORGANIZATION_BY_CODE, GET_MY_ORGANIZATIONS } from '@/lib/graphql/queries/organizations';
 import { JOIN_ORGANIZATION_BY_CODE } from '@/lib/graphql/mutations/organizations';
 import { Button } from '@/components/ui';
+import { useAuthStore } from '@/store/auth';
 import type { Organization } from '@/types';
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -41,6 +42,21 @@ export default function JoinOrganizationScreen() {
   const isOnboarding = onboarding === 'true';
   const [code, setCode] = useState('');
   const [previewOrg, setPreviewOrg] = useState<Organization | null>(null);
+  const { isAuthenticated, isLoading: authLoading } = useAuthStore();
+
+  // Redirect to login if not authenticated
+  if (!authLoading && !isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
 
   // Query to lookup organization by code
   const [lookupOrg, { loading: lookingUp }] = useLazyQuery(GET_ORGANIZATION_BY_CODE, {
@@ -243,6 +259,12 @@ export default function JoinOrganizationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
   },
   header: {
