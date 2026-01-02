@@ -141,11 +141,12 @@ export function usePushNotifications() {
     responseListener.current = addNotificationResponseReceivedListener(handleNotificationResponse);
 
     return () => {
+      // In Expo SDK 53+, subscriptions have a .remove() method
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        notificationListener.current.remove();
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
       }
     };
   }, [handleNotification, handleNotificationResponse]);
