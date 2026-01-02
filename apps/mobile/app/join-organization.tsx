@@ -20,6 +20,9 @@ import { Button } from '@/components/ui';
 import { useAuthStore } from '@/store/auth';
 import type { Organization } from '@/types';
 
+// Debug: show current user info
+const DEBUG_MODE = __DEV__;
+
 const LEVEL_LABELS: Record<string, string> = {
   NATIONAL: 'National',
   STATE: 'State',
@@ -42,9 +45,9 @@ export default function JoinOrganizationScreen() {
   const isOnboarding = onboarding === 'true';
   const [code, setCode] = useState('');
   const [previewOrg, setPreviewOrg] = useState<Organization | null>(null);
-  const { isAuthenticated, isLoading: authLoading } = useAuthStore();
+  const { isAuthenticated, isLoading: authLoading, user, logout } = useAuthStore();
 
-  console.log('🔐 JoinOrg: Auth state:', { isAuthenticated, authLoading });
+  console.log('🔐 JoinOrg: Auth state:', { isAuthenticated, authLoading, user: user?.email });
 
   // Only authenticated users can access this page
   // Redirect to welcome screen if not logged in
@@ -181,6 +184,18 @@ export default function JoinOrganizationScreen() {
       </View>
 
       <View style={styles.content}>
+        {/* User info and logout option */}
+        {user && (
+          <View style={styles.userInfo}>
+            <Text style={styles.userInfoText}>
+              Logged in as {user.email || user.displayName || 'User'}
+            </Text>
+            <TouchableOpacity onPress={logout}>
+              <Text style={styles.logoutLink}>Not you? Logout</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Instructions */}
         <View style={styles.instructions}>
           <Ionicons name="qr-code-outline" size={48} color="#007AFF" />
@@ -270,6 +285,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
+  },
+  userInfo: {
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingVertical: 12,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+  },
+  userInfoText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  logoutLink: {
+    fontSize: 14,
+    color: '#FF3B30',
+    fontWeight: '500',
   },
   header: {
     flexDirection: 'row',
