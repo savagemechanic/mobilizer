@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Link } from 'expo-router';
 import { useMutation } from '@apollo/client';
 import { useForm, Controller } from 'react-hook-form';
@@ -23,10 +24,14 @@ import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string().min(6, 'Please confirm your password'),
   firstName: z.string().min(2, 'First name is required'),
   lastName: z.string().min(2, 'Last name is required'),
   phoneNumber: z.string().optional(),
   locationCode: z.string().optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
 type RegisterForm = z.infer<typeof registerSchema>;
@@ -39,6 +44,8 @@ export default function RegisterScreen() {
   const [useLocationCode, setUseLocationCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [location, setLocation] = useState<LocationValue>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [registerMutation] = useMutation(REGISTER);
 
@@ -51,6 +58,7 @@ export default function RegisterScreen() {
     defaultValues: {
       email: '',
       password: '',
+      confirmPassword: '',
       firstName: '',
       lastName: '',
       phoneNumber: '',
@@ -296,21 +304,69 @@ export default function RegisterScreen() {
                 control={control}
                 name="password"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[styles.input, errors.password && styles.inputError]}
-                    placeholder="Enter your password"
-                    placeholderTextColor="#999"
-                    secureTextEntry
-                    autoComplete="password-new"
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                    editable={!isLoading}
-                  />
+                  <View style={styles.passwordContainer}>
+                    <TextInput
+                      style={[styles.input, styles.passwordInput, errors.password && styles.inputError]}
+                      placeholder="Enter your password"
+                      placeholderTextColor="#999"
+                      secureTextEntry={!showPassword}
+                      autoComplete="password-new"
+                      onBlur={onBlur}
+                      onChangeText={onChange}
+                      value={value}
+                      editable={!isLoading}
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeIcon}
+                      onPress={() => setShowPassword(!showPassword)}
+                    >
+                      <Ionicons
+                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={22}
+                        color="#666"
+                      />
+                    </TouchableOpacity>
+                  </View>
                 )}
               />
               {errors.password && (
                 <Text style={styles.errorText}>{errors.password.message}</Text>
+              )}
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Confirm Password</Text>
+              <Controller
+                control={control}
+                name="confirmPassword"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <View style={styles.passwordContainer}>
+                    <TextInput
+                      style={[styles.input, styles.passwordInput, errors.confirmPassword && styles.inputError]}
+                      placeholder="Confirm your password"
+                      placeholderTextColor="#999"
+                      secureTextEntry={!showConfirmPassword}
+                      autoComplete="password-new"
+                      onBlur={onBlur}
+                      onChangeText={onChange}
+                      value={value}
+                      editable={!isLoading}
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeIcon}
+                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      <Ionicons
+                        name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                        size={22}
+                        color="#666"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+              {errors.confirmPassword && (
+                <Text style={styles.errorText}>{errors.confirmPassword.message}</Text>
               )}
             </View>
 
@@ -400,6 +456,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000',
     backgroundColor: '#F9F9F9',
+  },
+  passwordContainer: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 50,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 16,
+    top: 14,
   },
   inputError: {
     borderColor: '#FF3B30',
