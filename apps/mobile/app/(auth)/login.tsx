@@ -71,13 +71,21 @@ export default function LoginScreen() {
       setError(null);
       console.log('🔐 Starting login...', { email: data.email });
 
-      const { data: result } = await loginMutation({
+      const { data: result, errors } = await loginMutation({
         variables: {
           input: data,
         },
       });
 
-      console.log('📡 Login response:', result);
+      console.log('📡 Login response:', JSON.stringify(result, null, 2));
+      console.log('📡 Login errors:', JSON.stringify(errors, null, 2));
+
+      if (errors && errors.length > 0) {
+        console.error('❌ GraphQL errors:', errors);
+        const errorMessage = errors[0]?.message || 'Login failed. Please check your credentials.';
+        setError(errorMessage);
+        return;
+      }
 
       if (result?.login) {
         const { accessToken, refreshToken, user } = result.login;
@@ -100,7 +108,20 @@ export default function LoginScreen() {
         message: err.message,
         graphQLErrors: err.graphQLErrors,
         networkError: err.networkError,
+        stack: err.stack,
       });
+
+      // Check for network errors specifically
+      if (err.networkError) {
+        console.error('Network error details:', {
+          name: err.networkError.name,
+          message: err.networkError.message,
+          statusCode: err.networkError.statusCode,
+          result: err.networkError.result,
+        });
+        setError('Network error. Please check your internet connection and try again.');
+        return;
+      }
 
       // Extract user-friendly error message
       const errorMessage = err.graphQLErrors?.[0]?.message

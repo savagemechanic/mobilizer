@@ -88,6 +88,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Check if user has a password set (Google-only users won't have one)
+    if (!user.password) {
+      throw new UnauthorizedException('This account uses Google Sign-In. Please sign in with Google.');
+    }
+
     // Verify password
     const isPasswordValid = await bcrypt.compare(input.password, user.password);
 

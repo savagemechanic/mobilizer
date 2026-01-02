@@ -11,6 +11,8 @@ const GRAPHQL_HTTP_URL =
   'http://localhost:4000/graphql';
 
 console.log('🌐 GraphQL URL:', GRAPHQL_HTTP_URL);
+console.log('🔧 Expo Config Extra:', JSON.stringify(Constants.expoConfig?.extra, null, 2));
+console.log('🔧 Process Env GRAPHQL_HTTP_URL:', process.env.EXPO_PUBLIC_GRAPHQL_HTTP_URL);
 
 // HTTP link for GraphQL requests
 const httpLink = new HttpLink({
