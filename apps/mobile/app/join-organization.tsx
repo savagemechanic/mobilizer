@@ -11,7 +11,7 @@ import {
   Image,
   Alert,
 } from 'react-native';
-import { useRouter, useLocalSearchParams, Redirect } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLazyQuery, useMutation } from '@apollo/client';
 import { GET_ORGANIZATION_BY_CODE, GET_MY_ORGANIZATIONS } from '@/lib/graphql/queries/organizations';
@@ -39,24 +39,13 @@ const LEVEL_COLORS: Record<string, string> = {
 export default function JoinOrganizationScreen() {
   const router = useRouter();
   const { onboarding } = useLocalSearchParams();
-  const isOnboarding = onboarding === 'true';
   const [code, setCode] = useState('');
   const [previewOrg, setPreviewOrg] = useState<Organization | null>(null);
-  const { isAuthenticated, isLoading: authLoading } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
 
-  // Redirect to login if not authenticated
-  if (!authLoading && !isAuthenticated) {
-    return <Redirect href="/(auth)/login" />;
-  }
-
-  // Show loading while checking auth
-  if (authLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
-  }
+  // Only force onboarding mode if user is authenticated and has no organizations
+  // The onboarding=true param is set by useRequireOrganization hook
+  const isOnboarding = onboarding === 'true' && isAuthenticated;
 
   // Query to lookup organization by code
   const [lookupOrg, { loading: lookingUp }] = useLazyQuery(GET_ORGANIZATION_BY_CODE, {
@@ -146,8 +135,25 @@ export default function JoinOrganizationScreen() {
   // Handle join
   const handleJoin = useCallback(() => {
     if (!code) return;
+
+    // Check if user is authenticated before attempting to join
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Login Required',
+        'You need to log in to join an organization.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Log In',
+            onPress: () => router.push('/(auth)/login')
+          },
+        ]
+      );
+      return;
+    }
+
     joinByCode({ variables: { code } });
-  }, [code, joinByCode]);
+  }, [code, joinByCode, isAuthenticated, router]);
 
   const levelLabel = previewOrg ? (LEVEL_LABELS[previewOrg.level] || previewOrg.level) : '';
   const levelColor = previewOrg ? (LEVEL_COLORS[previewOrg.level] || '#999') : '#999';
@@ -259,12 +265,6 @@ export default function JoinOrganizationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: '#FFFFFF',
   },
   header: {
