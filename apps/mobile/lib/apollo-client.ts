@@ -14,16 +14,37 @@ console.log('🌐 GraphQL URL:', GRAPHQL_HTTP_URL);
 console.log('🔧 Expo Config Extra:', JSON.stringify(Constants.expoConfig?.extra, null, 2));
 console.log('🔧 Process Env GRAPHQL_HTTP_URL:', process.env.EXPO_PUBLIC_GRAPHQL_HTTP_URL);
 
+// Custom fetch with timeout for Render cold starts (can take 30+ seconds)
+const fetchWithTimeout = (uri: RequestInfo, options?: RequestInit): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
+  return fetch(uri, {
+    ...options,
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeoutId));
+};
+
 // HTTP link for GraphQL requests
 const httpLink = new HttpLink({
   uri: GRAPHQL_HTTP_URL,
+  fetch: fetchWithTimeout,
 });
 
-// Auth link to attach JWT token to requests
+// Auth link to attach JWT token to requests (with timeout to prevent Android hangs)
 const authLink = setContext(async (_, { headers }) => {
   try {
-    // Get access token from SecureStore
-    const token = await SecureStore.getItemAsync('accessToken');
+    // Add timeout to SecureStore call to prevent hangs on Android
+    const tokenPromise = SecureStore.getItemAsync('accessToken');
+    const timeoutPromise = new Promise<null>((resolve) => {
+      setTimeout(() => {
+        console.warn('⚠️ SecureStore timeout - continuing without token');
+        resolve(null);
+      }, 3000); // 3 second timeout
+    });
+
+    const token = await Promise.race([tokenPromise, timeoutPromise]);
+    console.log('🔑 Auth token retrieved:', token ? 'YES' : 'NO');
 
     return {
       headers: {
@@ -32,7 +53,7 @@ const authLink = setContext(async (_, { headers }) => {
       },
     };
   } catch (error) {
-    console.error('Error getting auth token:', error);
+    console.error('❌ Error getting auth token:', error);
     return { headers };
   }
 });
