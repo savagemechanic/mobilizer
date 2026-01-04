@@ -1031,24 +1031,22 @@ export class PostsService {
       (post as any).pollingUnit?.name,
     );
 
-    // Build the share text
-    let shareText = `"${contentPreview}"\n-- ${authorName}${locationString}.`;
+    // Build invite code line
+    const inviteText = post.organization?.inviteCode
+      ? `Join the conversation (code: ${post.organization.inviteCode}) in your location.`
+      : 'Join the conversation in your location.';
 
-    // Add marketing text for external shares
-    if (includeMarketing) {
-      // Add invite code line
-      if (post.organization?.inviteCode) {
-        shareText += `\n\nJoin the conversation (code: ${post.organization.inviteCode}) in your location.`;
-      } else {
-        shareText += `\n\nJoin the conversation in your location.`;
-      }
+    // Build the share text as a single formatted string
+    const shareText = includeMarketing
+      ? `"${contentPreview}"
+-- ${authorName}${locationString}.
 
-      // Add download CTA
-      shareText += `\n\nDownload the Mobiliser app today, on iPhone or Android.`;
+${inviteText}
 
-      // Add app download link (TODO: Replace with actual link)
-      shareText += `\nhttps://mobiliser.app/download`;
-    }
+Download the Mobiliser app today, on iPhone or Android.
+https://mobiliser.app/download`
+      : `"${contentPreview}"
+-- ${authorName}${locationString}.`;
 
     return shareText;
   }

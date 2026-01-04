@@ -355,22 +355,34 @@ export default function CreatePostModal() {
                 onPress={() => setShowOrgPicker(true)}
                 disabled={loading}
               >
-                {orgSelectionMode === 'org' && selectedOrg ? (
+                {selectedOrg && orgSelectionMode === 'org' ? (
                   <>
                     <Avatar uri={selectedOrg.logo} name={selectedOrg.name} size={16} />
                     <Text style={styles.inlineSelectText} numberOfLines={1}>
                       {selectedOrg.name}
                     </Text>
                   </>
-                ) : orgSelectionMode === 'public' ? (
+                ) : selectedOrg && orgSelectionMode === 'public' ? (
                   <>
-                    <Ionicons name="people" size={14} color="#34C759" />
+                    <Ionicons name="globe-outline" size={14} color="#34C759" />
                     <Text style={[styles.inlineSelectText, { color: '#34C759' }]}>Public</Text>
                   </>
-                ) : (
+                ) : orgSelectionMode === 'select' ? (
+                  <>
+                    <Ionicons name="layers-outline" size={14} color="#007AFF" />
+                    <Text style={[styles.inlineSelectText, { color: '#007AFF' }]}>All Orgs</Text>
+                  </>
+                ) : !selectedOrg ? (
                   <>
                     <Ionicons name="business-outline" size={14} color="#007AFF" />
                     <Text style={[styles.inlineSelectText, { color: '#007AFF' }]}>Select org</Text>
+                  </>
+                ) : (
+                  <>
+                    <Avatar uri={selectedOrg.logo} name={selectedOrg.name} size={16} />
+                    <Text style={styles.inlineSelectText} numberOfLines={1}>
+                      {selectedOrg.name}
+                    </Text>
                   </>
                 )}
                 <Ionicons name="chevron-down" size={12} color="#666" />

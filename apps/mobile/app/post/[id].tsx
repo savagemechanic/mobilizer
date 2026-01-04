@@ -13,12 +13,12 @@ import {
   Share,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, LeaderBadge } from '@/components/ui';
-import { GET_POST_WITH_COMMENTS } from '@/lib/graphql/queries/feed';
+import { GET_POST_WITH_COMMENTS, GET_POST_SHARE_TEXT } from '@/lib/graphql/queries/feed';
 import { CREATE_COMMENT, LIKE_POST, LIKE_COMMENT, SHARE_POST } from '@/lib/graphql/mutations/feed';
 import { Post as PostType, Comment } from '@/types';
 
@@ -60,6 +60,7 @@ export default function PostDetailScreen() {
   const [sharePostMutation] = useMutation(SHARE_POST, {
     refetchQueries: [{ query: GET_POST_WITH_COMMENTS, variables: { id } }],
   });
+  const [getShareText] = useLazyQuery(GET_POST_SHARE_TEXT);
 
   const post: PostWithComments | null = data?.post || null;
 
@@ -144,12 +145,13 @@ export default function PostDetailScreen() {
   const handleShare = async () => {
     if (!post) return;
 
-    const authorName = getAuthorName(post.author);
-    const shareMessage = post.content
-      ? `${authorName} shared: "${post.content.substring(0, 100)}${post.content.length > 100 ? '...' : ''}"`
-      : `Check out this post by ${authorName}`;
-
     try {
+      // Fetch the share text from backend with full structure
+      const { data: shareData } = await getShareText({ variables: { postId: post.id } });
+      const shareMessage = shareData?.postShareText || `Check out this post on Mobilizer!`;
+
+      console.log('Share message being sent:', shareMessage);
+
       const result = await Share.share({
         message: shareMessage,
       });
