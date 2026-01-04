@@ -70,6 +70,8 @@ enum NotificationType {
   POST_MENTION
   EVENT_INVITE
   EVENT_REMINDER
+  EVENT_RSVP
+  NEW_EVENT
   MEMBERSHIP_APPROVED
   MEMBERSHIP_REJECTED
   NEW_FOLLOWER
@@ -429,6 +431,7 @@ model Post {
   likeCount      Int       @default(0)
   commentCount   Int       @default(0)
   shareCount     Int       @default(0)
+  repostCount    Int       @default(0)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

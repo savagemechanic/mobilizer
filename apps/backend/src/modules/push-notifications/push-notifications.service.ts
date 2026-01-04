@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { FirebaseService } from '../firebase/firebase.service';
 
 interface PushMessage {
   to: string;
@@ -23,7 +24,10 @@ export class PushNotificationsService {
   private readonly logger = new Logger(PushNotificationsService.name);
   private readonly EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private firebaseService: FirebaseService,
+  ) {}
 
   async registerDevice(
     userId: string,
@@ -169,48 +173,80 @@ export class PushNotificationsService {
       return { sent: 0, failed: 0 };
     }
 
-    // Batch messages (Expo API allows up to 100 per request)
-    const batches = this.chunkArray(messages, 100);
+    // Separate Expo tokens (start with ExponentPushToken) from FCM tokens
+    const expoMessages: PushMessage[] = [];
+    const fcmMessages: PushMessage[] = [];
+
+    for (const msg of messages) {
+      if (msg.to.startsWith('ExponentPushToken')) {
+        expoMessages.push(msg);
+      } else {
+        fcmMessages.push(msg);
+      }
+    }
+
     let sent = 0;
     let failed = 0;
     const invalidTokens: string[] = [];
 
-    for (const batch of batches) {
-      try {
-        const response = await fetch(this.EXPO_PUSH_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          body: JSON.stringify(batch),
-        });
+    // Send FCM messages via Firebase if configured
+    if (fcmMessages.length > 0 && this.firebaseService.isConfigured()) {
+      const tokens = fcmMessages.map(m => m.to);
+      const firstMsg = fcmMessages[0];
+      const result = await this.firebaseService.sendToDevices({
+        tokens,
+        title: firstMsg.title,
+        body: firstMsg.body,
+        data: firstMsg.data as Record<string, string>,
+      });
+      sent += result.success;
+      failed += result.failure;
+    } else if (fcmMessages.length > 0) {
+      // No Firebase configured, treat FCM tokens as failed
+      this.logger.warn('FCM tokens found but Firebase not configured');
+      failed += fcmMessages.length;
+    }
 
-        const result = await response.json();
-        const tickets: ExpoPushTicket[] = result.data || [];
+    // Send Expo messages via Expo Push API
+    if (expoMessages.length > 0) {
+      const batches = this.chunkArray(expoMessages, 100);
 
-        for (let i = 0; i < tickets.length; i++) {
-          const ticket = tickets[i];
-          if (ticket.status === 'ok') {
-            sent++;
-          } else {
-            failed++;
-            // Check for invalid token errors
-            if (
-              ticket.details?.error === 'DeviceNotRegistered' ||
-              ticket.details?.error === 'InvalidCredentials'
-            ) {
-              invalidTokens.push(batch[i].to);
+      for (const batch of batches) {
+        try {
+          const response = await fetch(this.EXPO_PUSH_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify(batch),
+          });
+
+          const result = await response.json();
+          const tickets: ExpoPushTicket[] = result.data || [];
+
+          for (let i = 0; i < tickets.length; i++) {
+            const ticket = tickets[i];
+            if (ticket.status === 'ok') {
+              sent++;
+            } else {
+              failed++;
+              if (
+                ticket.details?.error === 'DeviceNotRegistered' ||
+                ticket.details?.error === 'InvalidCredentials'
+              ) {
+                invalidTokens.push(batch[i].to);
+              }
+              this.logger.warn(
+                `Push notification failed: ${ticket.message}`,
+                ticket.details,
+              );
             }
-            this.logger.warn(
-              `Push notification failed: ${ticket.message}`,
-              ticket.details,
-            );
           }
+        } catch (error) {
+          this.logger.error(`Failed to send push notifications: ${error.message}`);
+          failed += batch.length;
         }
-      } catch (error) {
-        this.logger.error(`Failed to send push notifications: ${error.message}`);
-        failed += batch.length;
       }
     }
 

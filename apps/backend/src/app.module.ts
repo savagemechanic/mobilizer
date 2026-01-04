@@ -29,6 +29,7 @@ import { UploadModule } from './modules/upload/upload.module';
 import { PushNotificationsModule } from './modules/push-notifications/push-notifications.module';
 import { JobsModule } from './jobs/jobs.module';
 import { AiModule } from './modules/ai/ai.module';
+import { FirebaseModule } from './modules/firebase/firebase.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { AiModule } from './modules/ai/ai.module';
     }),
 
     // Feature Modules
+    FirebaseModule,
     AuditModule,
     AuthModule,
     UsersModule,

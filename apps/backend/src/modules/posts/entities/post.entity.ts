@@ -96,6 +96,9 @@ export class PostEntity {
   shareCount: number;
 
   @Field()
+  repostCount: number;
+
+  @Field()
   viewCount: number;
 
   @Field()

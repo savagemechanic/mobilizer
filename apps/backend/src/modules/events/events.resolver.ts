@@ -1,10 +1,19 @@
-import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Int, ObjectType, Field } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventInput } from './dto/create-event.input';
 import { EventEntity, EventRSVPEntity } from './entities/event.entity';
 import { GqlAuthGuard } from '../../common/guards/gql-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+
+@ObjectType()
+class InviteResult {
+  @Field(() => Int)
+  invited: number;
+
+  @Field(() => Int)
+  failed: number;
+}
 
 @Resolver()
 export class EventsResolver {
@@ -41,7 +50,16 @@ export class EventsResolver {
     @CurrentUser() user: any,
     @Args('input') input: CreateEventInput,
   ) {
-    return this.eventsService.create(user.id, input);
+    const event = await this.eventsService.create(user.id, input);
+
+    // Notify organization members about the new event
+    if (input.orgId) {
+      this.eventsService.notifyOrgMembersOfNewEvent(event).catch(() => {
+        // Fire and forget - don't block event creation
+      });
+    }
+
+    return event;
   }
 
   @Mutation(() => EventRSVPEntity)
@@ -52,5 +70,15 @@ export class EventsResolver {
     @Args('status', { defaultValue: 'GOING' }) status: string,
   ) {
     return this.eventsService.rsvp(user.id, eventId, status);
+  }
+
+  @Mutation(() => InviteResult)
+  @UseGuards(GqlAuthGuard)
+  async inviteToEvent(
+    @CurrentUser() user: any,
+    @Args('eventId') eventId: string,
+    @Args('userIds', { type: () => [String] }) userIds: string[],
+  ) {
+    return this.eventsService.inviteToEvent(user.id, eventId, userIds);
   }
 }

@@ -1,10 +1,16 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PushNotificationsService } from '../push-notifications/push-notifications.service';
 import { SendMessageInput } from './dto/send-message.input';
 
 @Injectable()
 export class ChatService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(ChatService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private pushNotificationsService: PushNotificationsService,
+  ) {}
 
   async getConversations(userId: string) {
     const conversations = await this.prisma.conversation.findMany({
@@ -287,7 +293,7 @@ export class ChatService {
       data: { updatedAt: new Date() },
     });
 
-    // Create notifications for other participants
+    // Create notifications for other participants and send push notifications
     const otherParticipants = await this.prisma.participant.findMany({
       where: {
         conversationId: input.conversationId,
@@ -296,7 +302,19 @@ export class ChatService {
       },
     });
 
+    // Get sender's display name
+    const senderName = message.sender.displayName ||
+      `${message.sender.firstName} ${message.sender.lastName}`.trim() ||
+      'Someone';
+
+    // Get conversation name for group chats
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: input.conversationId },
+      select: { name: true, type: true },
+    });
+
     for (const p of otherParticipants) {
+      // Create in-app notification
       await this.prisma.notification.create({
         data: {
           userId: p.userId,
@@ -306,6 +324,31 @@ export class ChatService {
           data: { conversationId: input.conversationId, messageId: message.id },
         },
       });
+
+      // Send push notification
+      try {
+        const title = conversation?.type === 'GROUP' && conversation.name
+          ? conversation.name
+          : senderName;
+
+        const body = input.content
+          ? (conversation?.type === 'GROUP' ? `${senderName}: ${input.content}` : input.content)
+          : (input.mediaUrl ? `${senderName} sent a photo` : 'New message');
+
+        await this.pushNotificationsService.sendToUser(
+          p.userId,
+          title,
+          body.length > 100 ? body.substring(0, 97) + '...' : body,
+          {
+            type: 'message',
+            conversationId: input.conversationId,
+            messageId: message.id,
+            screen: '/(tabs)/messages',
+          },
+        );
+      } catch (error) {
+        this.logger.warn(`Failed to send push notification to user ${p.userId}: ${error.message}`);
+      }
     }
 
     // Return with isRead field explicitly set

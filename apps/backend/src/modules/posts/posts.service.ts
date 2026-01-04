@@ -899,16 +899,20 @@ export class PostsService {
         },
       });
 
-      // Increment share count
+      // Increment appropriate count based on platform
+      // 'internal' = repost (quote tweet style), everything else = external share
+      const isRepost = platform === 'internal';
       const updatedPost = await tx.post.update({
         where: { id: postId },
-        data: { shareCount: { increment: 1 } },
-        select: { shareCount: true },
+        data: isRepost
+          ? { repostCount: { increment: 1 } }
+          : { shareCount: { increment: 1 } },
+        select: { shareCount: true, repostCount: true },
       });
 
       return {
         id: share.id,
-        shareCount: updatedPost.shareCount,
+        shareCount: isRepost ? updatedPost.repostCount : updatedPost.shareCount,
         platform: share.platform,
       };
     });
