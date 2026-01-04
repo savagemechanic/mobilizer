@@ -15,7 +15,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mobilizer.app"
+      "bundleIdentifier": "com.mobilizer.mobilizer",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +25,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.mobilizer.app"
+      "package": "com.mobilizer.mobilizer",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -41,6 +43,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#3498DB"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/mobilizer-logo.png",
+          "color": "#3498DB",
+          "defaultChannel": "default"
+        }
       ]
     ],
     "experiments": {
@@ -55,7 +65,13 @@
       },
       "EXPO_PUBLIC_GRAPHQL_HTTP_URL": "https://mobilizer-backend-dyw1.onrender.com/graphql",
       "EXPO_PUBLIC_API_URL": "https://mobilizer-backend-dyw1.onrender.com",
-      "EXPO_PUBLIC_ENV": "production"
+      "EXPO_PUBLIC_ENV": "production",
+      "FIREBASE_API_KEY": "AIzaSyC6R5N96ioUGrb3JACc23NxO5KPkd4Ywwo",
+      "FIREBASE_AUTH_DOMAIN": "mobilizer-fc4ea.firebaseapp.com",
+      "FIREBASE_PROJECT_ID": "mobilizer-fc4ea",
+      "FIREBASE_STORAGE_BUCKET": "mobilizer-fc4ea.firebasestorage.app",
+      "FIREBASE_MESSAGING_SENDER_ID": "339124171156",
+      "FIREBASE_APP_ID": "1:339124171156:android:432a46a304b50708501f81"
     },
     "owner": "savagemechanic"
   }

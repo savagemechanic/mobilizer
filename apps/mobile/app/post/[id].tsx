@@ -16,11 +16,12 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatDistanceToNow } from 'date-fns';
+import { differenceInSeconds, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, formatDistanceToNow } from 'date-fns';
 import { Avatar, LeaderBadge } from '@/components/ui';
-import { GET_POST_WITH_COMMENTS, GET_POST_SHARE_TEXT } from '@/lib/graphql/queries/feed';
+import { GET_POST_WITH_COMMENTS, GET_POST_SHARE_TEXT, GET_POST_REPOST_TEXT } from '@/lib/graphql/queries/feed';
 import { CREATE_COMMENT, LIKE_POST, LIKE_COMMENT, SHARE_POST } from '@/lib/graphql/mutations/feed';
 import { Post as PostType, Comment } from '@/types';
+import { useFeedStore } from '@/store/feed';
 
 interface PostWithComments extends PostType {
   comments?: Comment[];
@@ -33,6 +34,28 @@ const formatCount = (count: number): string => {
   return count.toString();
 };
 
+// Format time in short format (19m, 2h, 3d, 2w)
+const formatTimeShort = (date: Date): string => {
+  const now = new Date();
+  const seconds = differenceInSeconds(now, date);
+
+  if (seconds < 60) return `${seconds}s`;
+
+  const minutes = differenceInMinutes(now, date);
+  if (minutes < 60) return `${minutes}m`;
+
+  const hours = differenceInHours(now, date);
+  if (hours < 24) return `${hours}h`;
+
+  const days = differenceInDays(now, date);
+  if (days < 7) return `${days}d`;
+
+  const weeks = differenceInWeeks(now, date);
+  if (weeks < 52) return `${weeks}w`;
+
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -42,6 +65,9 @@ export default function PostDetailScreen() {
   const [commentText, setCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
+
+  // Get optimistic updates from feed store
+  const { optimisticRepost, optimisticShare } = useFeedStore();
 
   // Fetch post with comments
   const { data, loading, error, refetch } = useQuery(GET_POST_WITH_COMMENTS, {
@@ -61,6 +87,7 @@ export default function PostDetailScreen() {
     refetchQueries: [{ query: GET_POST_WITH_COMMENTS, variables: { id } }],
   });
   const [getShareText] = useLazyQuery(GET_POST_SHARE_TEXT);
+  const [getRepostText] = useLazyQuery(GET_POST_REPOST_TEXT);
 
   const post: PostWithComments | null = data?.post || null;
 
@@ -128,17 +155,37 @@ export default function PostDetailScreen() {
     }
   };
 
-  // Handle repost (internal - opens create post with quoted text)
-  const handleRepost = () => {
+  // Handle repost (internal - opens create post with quoted text including location)
+  const handleRepost = async () => {
     if (!post) return;
 
-    const authorName = getAuthorName(post.author);
-    const repostText = `"${post.content?.substring(0, 200)}${(post.content?.length || 0) > 200 ? '...' : ''}"\n— ${authorName}`;
+    try {
+      // Optimistic update for repost counter
+      optimisticRepost(post.id);
 
-    router.push({
-      pathname: '/(modals)/create-post',
-      params: { repostText },
-    });
+      // Fetch repost text from backend which includes location context
+      const { data: repostData } = await getRepostText({ variables: { postId: post.id } });
+      const repostText = repostData?.postRepostText || `"${post.content?.substring(0, 200)}${(post.content?.length || 0) > 200 ? '...' : ''}"`;
+
+      // Track the repost on the backend
+      await sharePostMutation({
+        variables: { postId: post.id, platform: 'internal' },
+      });
+
+      router.push({
+        pathname: '/(modals)/create-post',
+        params: { repostText },
+      });
+    } catch (error) {
+      console.error('Error getting repost text:', error);
+      // Fallback to basic repost text
+      const authorName = getAuthorName(post.author);
+      const repostText = `"${post.content?.substring(0, 200)}${(post.content?.length || 0) > 200 ? '...' : ''}"\n— ${authorName}`;
+      router.push({
+        pathname: '/(modals)/create-post',
+        params: { repostText },
+      });
+    }
   };
 
   // Handle share (external share)
@@ -150,13 +197,15 @@ export default function PostDetailScreen() {
       const { data: shareData } = await getShareText({ variables: { postId: post.id } });
       const shareMessage = shareData?.postShareText || `Check out this post on Mobilizer!`;
 
-      console.log('Share message being sent:', shareMessage);
-
       const result = await Share.share({
         message: shareMessage,
       });
 
       if (result.action === Share.sharedAction) {
+        // Optimistic update for visible counter
+        optimisticShare(post.id);
+
+        // Track the share on the backend
         const platform = result.activityType || 'other';
         await sharePostMutation({
           variables: { postId: post.id, platform },
@@ -232,9 +281,7 @@ export default function PostDetailScreen() {
   }
 
   const authorName = getAuthorName(post.author);
-  const timeAgo = formatDistanceToNow(new Date(post.createdAt), {
-    addSuffix: true,
-  });
+  const timeAgo = formatTimeShort(new Date(post.createdAt));
 
   return (
     <KeyboardAvoidingView
@@ -284,19 +331,11 @@ export default function PostDetailScreen() {
                 </View>
                 <Text style={styles.timestamp}>{timeAgo}</Text>
               </View>
-              <View style={styles.metaRow}>
-                {post.author?.email && (
-                  <Text style={styles.authorHandle} numberOfLines={1}>
-                    @{post.author.email.split('@')[0]}
-                  </Text>
-                )}
-                {post.organization && (
-                  <>
-                    <Text style={styles.separator}>•</Text>
-                    <Text style={styles.orgName} numberOfLines={1}>{post.organization.name}</Text>
-                  </>
-                )}
-              </View>
+              {post.author?.email && (
+                <Text style={styles.authorHandle} numberOfLines={1}>
+                  @{post.author.email.split('@')[0]}
+                </Text>
+              )}
             </View>
           </TouchableOpacity>
 
@@ -304,19 +343,6 @@ export default function PostDetailScreen() {
           {post.content && (
             <Text style={styles.postContent}>{post.content}</Text>
           )}
-
-          {/* Post Stats */}
-          <View style={styles.statsContainer}>
-            <Text style={styles.statsText}>
-              {post.likeCount} {post.likeCount === 1 ? 'like' : 'likes'}
-            </Text>
-            <Text style={styles.statsText}>
-              {post.commentCount} {post.commentCount === 1 ? 'comment' : 'comments'}
-            </Text>
-            <Text style={styles.statsText}>
-              {post.shareCount} {post.shareCount === 1 ? 'share' : 'shares'}
-            </Text>
-          </View>
 
           {/* Post Actions - Comment, Like, Repost, Share */}
           <View style={styles.actionsContainer}>
@@ -357,8 +383,8 @@ export default function PostDetailScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="repeat-outline" size={24} color="#536471" />
-              {post.shareCount > 0 && (
-                <Text style={styles.actionCount}>{formatCount(post.shareCount)}</Text>
+              {(post.repostCount || 0) > 0 && (
+                <Text style={styles.actionCount}>{formatCount(post.repostCount || 0)}</Text>
               )}
             </TouchableOpacity>
 
@@ -369,6 +395,9 @@ export default function PostDetailScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="share-social-outline" size={22} color="#536471" />
+              {post.shareCount > 0 && (
+                <Text style={styles.actionCount}>{formatCount(post.shareCount)}</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -580,29 +609,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F1419',
   },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 1,
-  },
   authorHandle: {
     fontSize: 13,
     color: '#536471',
-    flexShrink: 1,
+    marginTop: 1,
   },
   timestamp: {
     fontSize: 13,
     color: '#536471',
-  },
-  separator: {
-    marginHorizontal: 4,
-    color: '#536471',
-    fontSize: 13,
-  },
-  orgName: {
-    fontSize: 13,
-    color: '#007AFF',
-    flexShrink: 1,
   },
   postContent: {
     fontSize: 15,
@@ -610,20 +624,6 @@ const styles = StyleSheet.create({
     color: '#000',
     paddingHorizontal: 16,
     marginBottom: 12,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#EFF3F4',
-  },
-  statsText: {
-    fontSize: 14,
-    color: '#536471',
-    marginRight: 16,
   },
   actionsContainer: {
     flexDirection: 'row',

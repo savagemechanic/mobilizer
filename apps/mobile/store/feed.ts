@@ -50,6 +50,8 @@ interface FeedState {
   optimisticLike: (postId: string, isLiked: boolean) => void;
   optimisticComment: (postId: string) => void;
   optimisticVote: (postId: string, pollId: string, optionId: string) => void;
+  optimisticRepost: (postId: string) => void;
+  optimisticShare: (postId: string) => void;
 }
 
 export const useFeedStore = create<FeedState>((set, get) => ({
@@ -163,11 +165,12 @@ export const useFeedStore = create<FeedState>((set, get) => ({
 
   // Set full feed context at once (for convenience)
   setFeedContext: (org: Organization | null, viewType: FeedViewType, locationLevel?: LocationLevel | null) => {
-    set({
+    set((state) => ({
       currentViewingOrg: org,
       currentViewType: viewType,
-      currentLocationLevel: locationLevel ?? null,
-    });
+      // Only update currentLocationLevel if explicitly provided, otherwise keep existing
+      currentLocationLevel: locationLevel !== undefined ? locationLevel : state.currentLocationLevel,
+    }));
   },
 
   // Optimistic like update
@@ -218,6 +221,34 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         }
         return post;
       }),
+    }));
+  },
+
+  // Optimistic repost update (increment repost count)
+  optimisticRepost: (postId: string) => {
+    set((state) => ({
+      posts: state.posts.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              repostCount: (post.repostCount || 0) + 1,
+            }
+          : post
+      ),
+    }));
+  },
+
+  // Optimistic share update (increment share count)
+  optimisticShare: (postId: string) => {
+    set((state) => ({
+      posts: state.posts.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              shareCount: post.shareCount + 1,
+            }
+          : post
+      ),
     }));
   },
 }));

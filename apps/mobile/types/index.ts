@@ -94,25 +94,15 @@ export interface PlatformSettings {
 
 // Professions list for dropdown
 export const PROFESSIONS = [
+  'Civil Servant (State)',
+  'Civil Servant (Federal)',
+  'Corporate (I work for a Company)',
+  'SME (I run a small business)',
+  'Trader/Artisan (handwork)',
+  'Farmer (crops or livestock)',
+  'Executive (big business owner/leader)',
   'Student',
-  'Teacher/Educator',
-  'Healthcare Professional',
-  'Engineer',
-  'Business Owner',
-  'Civil Servant',
-  'Legal Professional',
-  'Finance/Banking',
-  'IT/Technology',
-  'Agriculture/Farming',
-  'Artisan/Tradesperson',
-  'Retail/Commerce',
-  'Transport/Logistics',
-  'Media/Journalism',
-  'Security Services',
-  'Religious Leader',
-  'Community Leader',
   'Unemployed',
-  'Retired',
   'Other',
 ] as const;
 
@@ -153,6 +143,7 @@ export interface Post {
   likeCount: number;
   commentCount: number;
   shareCount: number;
+  repostCount: number;
   author: User;
   mediaUrls?: string[];
   poll?: Poll;

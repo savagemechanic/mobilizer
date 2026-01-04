@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "339124171156",
+    "project_id": "mobilizer-fc4ea",
+    "storage_bucket": "mobilizer-fc4ea.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:339124171156:android:432a46a304b50708501f81",
+        "android_client_info": {
+          "package_name": "com.mobilizer.mobilizer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6R5N96ioUGrb3JACc23NxO5KPkd4Ywwo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

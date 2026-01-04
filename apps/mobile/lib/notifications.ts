@@ -48,7 +48,28 @@ export async function registerForPushNotificationsAsync(): Promise<PushNotificat
   }
 
   try {
-    // Get the Expo push token
+    const platform = Platform.OS as 'ios' | 'android';
+    const deviceName = Device.deviceName || undefined;
+    let token: string;
+
+    // Configure Android notification channel first
+    if (Platform.OS === 'android') {
+      await setupAndroidChannel();
+    }
+
+    // Try to get native FCM/APNs token first (for direct Firebase push)
+    try {
+      const nativeToken = await Notifications.getDevicePushTokenAsync();
+      if (nativeToken?.data) {
+        token = nativeToken.data;
+        console.log('Using native push token (FCM/APNs)');
+        return { token, platform, deviceName };
+      }
+    } catch (nativeError) {
+      console.log('Native token not available, falling back to Expo token');
+    }
+
+    // Fallback to Expo push token (for development/Expo Go)
     const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
 
     if (!projectId) {
@@ -60,14 +81,8 @@ export async function registerForPushNotificationsAsync(): Promise<PushNotificat
       projectId,
     });
 
-    const token = tokenResponse.data;
-    const platform = Platform.OS as 'ios' | 'android';
-    const deviceName = Device.deviceName || undefined;
-
-    // Configure Android notification channel
-    if (Platform.OS === 'android') {
-      await setupAndroidChannel();
-    }
+    token = tokenResponse.data;
+    console.log('Using Expo push token');
 
     return { token, platform, deviceName };
   } catch (error) {

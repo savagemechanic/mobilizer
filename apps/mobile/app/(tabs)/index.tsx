@@ -18,8 +18,7 @@ import { useFeedStore, LocationFilter } from '@/store/feed';
 import { useAuthStore } from '@/store/auth';
 import { PostCard, LocationCircles, OrganizationSelector } from '@/components/feed';
 import type { OrgLevel } from '@/components/feed/LocationCircles';
-import { GET_FEED, GET_POST_SHARE_TEXT } from '@/lib/graphql/queries/feed';
-import { GET_MY_ORGANIZATIONS } from '@/lib/graphql/queries/organizations';
+import { GET_FEED, GET_POST_SHARE_TEXT, GET_POST_REPOST_TEXT } from '@/lib/graphql/queries/feed';
 import {
   LIKE_POST,
   CREATE_COMMENT,
@@ -47,18 +46,20 @@ export default function FeedScreen() {
     incrementOffset,
     resetFeed,
     setLocationFilter,
+    setCurrentLocationLevel,
+    setFeedContext,
     optimisticLike,
     optimisticComment,
     optimisticVote,
+    optimisticRepost,
+    optimisticShare,
   } = useFeedStore();
 
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
-  const [activeLevel, setActiveLevel] = useState<OrgLevel | undefined>('POLLING_UNIT');
+  const [activeLevel, setActiveLevel] = useState<OrgLevel | undefined>(undefined);
   const [selectedOrg, setSelectedOrg] = useState<any>(null);
+  const [selectedType, setSelectedType] = useState<'org' | 'all' | 'public'>('all');
   const [hasInitializedFilter, setHasInitializedFilter] = useState(false);
-
-  // Fetch user's organizations
-  const { data: orgsData } = useQuery(GET_MY_ORGANIZATIONS);
 
   // Get user's location circles (reversed order: Polling Unit first, then up to Country)
   const locationCircles = React.useMemo(() => {
@@ -119,13 +120,29 @@ export default function FeedScreen() {
     return circles;
   }, [user]);
 
-  // Auto-set to polling unit level on mount
+  // Auto-set to most specific location level on mount
   useEffect(() => {
-    if (!hasInitializedFilter && user?.location?.pollingUnit) {
-      setLocationFilter({ pollingUnitId: user.location.pollingUnit.id });
+    if (!hasInitializedFilter && user?.location) {
+      if (user.location.pollingUnit) {
+        setLocationFilter({ pollingUnitId: user.location.pollingUnit.id });
+        setCurrentLocationLevel('POLLING_UNIT');
+        setActiveLevel('POLLING_UNIT');
+      } else if (user.location.ward) {
+        setLocationFilter({ wardId: user.location.ward.id });
+        setCurrentLocationLevel('WARD');
+        setActiveLevel('WARD');
+      } else if (user.location.lga) {
+        setLocationFilter({ lgaId: user.location.lga.id });
+        setCurrentLocationLevel('LGA');
+        setActiveLevel('LGA');
+      } else if (user.location.state) {
+        setLocationFilter({ stateId: user.location.state.id });
+        setCurrentLocationLevel('STATE');
+        setActiveLevel('STATE');
+      }
       setHasInitializedFilter(true);
     }
-  }, [user, hasInitializedFilter, setLocationFilter]);
+  }, [user, hasInitializedFilter, setLocationFilter, setCurrentLocationLevel]);
 
   // Build feed filter including both location and org filters
   const feedFilter = React.useMemo(() => {
@@ -266,29 +283,33 @@ export default function FeedScreen() {
 
   // Lazy query for share text
   const [getShareText] = useLazyQuery(GET_POST_SHARE_TEXT);
+  const [getRepostText] = useLazyQuery(GET_POST_REPOST_TEXT);
 
   // Handle repost (internal share - opens create post with quoted text)
   const handleRepost = useCallback(
-    (postId: string) => {
-      // Find the post to get its content
-      const post = posts.find((p) => p.id === postId);
-      if (!post) return;
+    async (postId: string) => {
+      try {
+        // Optimistic update for repost counter
+        optimisticRepost(postId);
 
-      // Build repost text locally
-      const authorName = post.author?.displayName ||
-        `${post.author?.firstName} ${post.author?.lastName}`.trim() ||
-        'Anonymous';
-      const contentPreview = post.content?.substring(0, 200) || '';
-      const ellipsis = (post.content?.length || 0) > 200 ? '...' : '';
-      const repostText = `"${contentPreview}${ellipsis}"\n— ${authorName}`;
+        const { data } = await getRepostText({ variables: { postId } });
+        const repostText = data?.postRepostText || '';
 
-      // Navigate to create post with the repost text
-      router.push({
-        pathname: '/(modals)/create-post',
-        params: { repostText },
-      });
+        // Track the repost on the backend
+        await sharePostMutation({
+          variables: { postId, platform: 'internal' },
+        });
+
+        // Navigate to create post with the repost text
+        router.push({
+          pathname: '/(modals)/create-post',
+          params: { repostText },
+        });
+      } catch (error) {
+        console.error('Failed to get repost text:', error);
+      }
     },
-    [posts, router]
+    [getRepostText, router, sharePostMutation, optimisticRepost]
   );
 
   // Handle external share (with marketing text)
@@ -303,6 +324,9 @@ export default function FeedScreen() {
         });
 
         if (result.action === Share.sharedAction) {
+          // Optimistic update for visible counter
+          optimisticShare(postId);
+
           // Track the share on the backend
           const platform = result.activityType || 'other';
           await sharePostMutation({
@@ -314,7 +338,7 @@ export default function FeedScreen() {
         Alert.alert('Error', 'Failed to share post');
       }
     },
-    [getShareText, sharePostMutation]
+    [getShareText, sharePostMutation, optimisticShare]
   );
 
   // Handle post press
@@ -347,14 +371,18 @@ export default function FeedScreen() {
   };
 
   // Handle organization selector
-  const handleOrgSelect = useCallback(async (org: any) => {
+  const handleOrgSelect = useCallback((org: any, type: 'org' | 'all' | 'public') => {
     setSelectedOrg(org);
+    setSelectedType(type);
+
+    // Update feed store so create-post can read the current org
+    setFeedContext(org, type);
 
     // Reset and refetch feed with new filter
     setLoading(true);
     resetFeed();
     setLoading(false);
-  }, [resetFeed, setLoading]);
+  }, [resetFeed, setLoading, setFeedContext]);
 
   // Handle location circle press
   const handleLocationCirclePress = useCallback(async (circle: any) => {
@@ -363,6 +391,9 @@ export default function FeedScreen() {
     // Toggle active level
     const newActiveLevel = circle.level === activeLevel ? undefined : circle.level;
     setActiveLevel(newActiveLevel);
+
+    // Update current location level in store so create-post can read it
+    setCurrentLocationLevel(newActiveLevel || null);
 
     // Build location filter based on selected level
     let filter: LocationFilter | null = null;
@@ -398,7 +429,7 @@ export default function FeedScreen() {
     setLoading(true);
     resetFeed();
     setLoading(false);
-  }, [activeLevel, setLocationFilter, resetFeed, setLoading]);
+  }, [activeLevel, setLocationFilter, setCurrentLocationLevel, resetFeed, setLoading]);
 
   // Render post item
   const renderPost = useCallback(
@@ -464,18 +495,29 @@ export default function FeedScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity
-          style={styles.qrCodeButton}
-          onPress={() => router.push('/join-organization')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="qr-code-outline" size={24} color="#007AFF" />
-        </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => router.push('/join-organization')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="qr-code-outline" size={24} color="#007AFF" />
+          </TouchableOpacity>
+        </View>
         <OrganizationSelector
-          organizations={orgsData?.myOrganizations || []}
           selectedOrg={selectedOrg}
+          selectedType={selectedType}
           onSelect={handleOrgSelect}
         />
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => router.push('/search')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="search-outline" size={24} color="#007AFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Location Circles */}
@@ -551,7 +593,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
-  qrCodeButton: {
+  headerLeft: {
+    width: 40,
+  },
+  headerRight: {
+    width: 40,
+  },
+  headerButton: {
     width: 40,
     height: 40,
     borderRadius: 20,

@@ -9,7 +9,6 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
-  Keyboard,
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,7 +36,6 @@ const registerSchema = z.object({
     .regex(/^[a-z0-9_]+$/, 'Only lowercase letters, numbers, and underscores'),
   profession: z.string().optional(),
   phoneNumber: z.string().optional(),
-  locationCode: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -50,7 +48,6 @@ export default function RegisterScreen() {
   const { login } = useAuthStore();
   const { showToast } = useUIStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [useLocationCode, setUseLocationCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [location, setLocation] = useState<LocationValue>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -82,29 +79,23 @@ export default function RegisterScreen() {
       setError(null);
 
       // Validate location is complete
-      if (!useLocationCode) {
-        if (!location.stateId) {
-          setError('Please select a State');
-          setIsLoading(false);
-          return;
-        }
-        if (!location.lgaId) {
-          setError('Please select an LGA');
-          setIsLoading(false);
-          return;
-        }
-        if (!location.wardId) {
-          setError('Please select a Ward');
-          setIsLoading(false);
-          return;
-        }
-        if (!location.pollingUnitId) {
-          setError('Please select a Polling Unit');
-          setIsLoading(false);
-          return;
-        }
-      } else if (!data.locationCode) {
-        setError('Please enter a location code');
+      if (!location.stateId) {
+        setError('Please select a State');
+        setIsLoading(false);
+        return;
+      }
+      if (!location.lgaId) {
+        setError('Please select an LGA');
+        setIsLoading(false);
+        return;
+      }
+      if (!location.wardId) {
+        setError('Please select a Ward');
+        setIsLoading(false);
+        return;
+      }
+      if (!location.pollingUnitId) {
+        setError('Please select a Polling Unit');
         setIsLoading(false);
         return;
       }
@@ -123,14 +114,10 @@ export default function RegisterScreen() {
       if (data.profession) input.profession = data.profession;
 
       // Add location fields (all required)
-      if (!useLocationCode) {
-        input.stateId = location.stateId;
-        input.lgaId = location.lgaId;
-        input.wardId = location.wardId;
-        input.pollingUnitId = location.pollingUnitId;
-      } else {
-        input.locationCode = data.locationCode;
-      }
+      input.stateId = location.stateId;
+      input.lgaId = location.lgaId;
+      input.wardId = location.wardId;
+      input.pollingUnitId = location.pollingUnitId;
 
       const { data: result } = await registerMutation({
         variables: {
@@ -329,50 +316,12 @@ export default function RegisterScreen() {
 
             {/* Location Selection */}
             <View style={styles.inputContainer}>
-              <View style={styles.locationHeader}>
-                <Text style={styles.label}>Location <Text style={styles.requiredAsterisk}>*</Text></Text>
-                <TouchableOpacity
-                  onPress={() => setUseLocationCode(!useLocationCode)}
-                  disabled={isLoading}
-                >
-                  <Text style={styles.toggleText}>
-                    {useLocationCode ? 'Use Dropdowns' : 'Use PVC Code'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {useLocationCode ? (
-                <View>
-                  <Controller
-                    control={control}
-                    name="locationCode"
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Enter your PVC code (e.g., 25-012-03-001)"
-                        placeholderTextColor="#999"
-                        autoCapitalize="characters"
-                        autoCorrect={false}
-                        returnKeyType="done"
-                        onSubmitEditing={() => Keyboard.dismiss()}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        value={value}
-                        editable={!isLoading}
-                      />
-                    )}
-                  />
-                  <Text style={styles.codeHelpText}>
-                    Enter the code from your Voter Card (PVC)
-                  </Text>
-                </View>
-              ) : (
-                <LocationPicker
-                  value={location}
-                  onChange={setLocation}
-                  disabled={isLoading}
-                />
-              )}
+              <Text style={styles.label}>Location <Text style={styles.requiredAsterisk}>*</Text></Text>
+              <LocationPicker
+                value={location}
+                onChange={setLocation}
+                disabled={isLoading}
+              />
             </View>
 
             <View style={styles.inputContainer}>
@@ -593,23 +542,6 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontSize: 14,
     fontWeight: '600',
-  },
-  locationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  toggleText: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  codeHelpText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 6,
-    fontStyle: 'italic',
   },
   requiredAsterisk: {
     color: '#FF3B30',

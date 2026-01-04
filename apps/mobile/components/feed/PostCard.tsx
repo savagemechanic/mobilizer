@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Avatar, LeaderBadge } from '@/components/ui';
 import { Post } from '@/types';
-import { formatDistanceToNow } from 'date-fns';
+import { differenceInSeconds, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks } from 'date-fns';
 
 const { width: screenWidth } = Dimensions.get('window');
 const IMAGE_WIDTH = screenWidth - 32; // Account for padding
@@ -22,6 +22,28 @@ const formatCount = (count: number): string => {
   if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
   if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
   return count.toString();
+};
+
+// Format time in short format (19m, 2h, 3d, 2w)
+const formatTimeShort = (date: Date): string => {
+  const now = new Date();
+  const seconds = differenceInSeconds(now, date);
+
+  if (seconds < 60) return `${seconds}s`;
+
+  const minutes = differenceInMinutes(now, date);
+  if (minutes < 60) return `${minutes}m`;
+
+  const hours = differenceInHours(now, date);
+  if (hours < 24) return `${hours}h`;
+
+  const days = differenceInDays(now, date);
+  if (days < 7) return `${days}d`;
+
+  const weeks = differenceInWeeks(now, date);
+  if (weeks < 52) return `${weeks}w`;
+
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 interface PostCardProps {
@@ -49,7 +71,7 @@ export function PostCard({
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   // Format timestamp
-  const timeAgo = formatDistanceToNow(new Date(post.createdAt), { addSuffix: true });
+  const timeAgo = formatTimeShort(new Date(post.createdAt));
 
   // Get author display name
   const authorName = post.author?.displayName ||
@@ -122,19 +144,11 @@ export function PostCard({
             </View>
             <Text style={styles.timestamp}>{timeAgo}</Text>
           </View>
-          <View style={styles.metaRow}>
-            {post.author?.email && (
-              <Text style={styles.authorHandle} numberOfLines={1}>
-                @{post.author.email.split('@')[0]}
-              </Text>
-            )}
-            {post.organization && (
-              <>
-                <Text style={styles.separator}>•</Text>
-                <Text style={styles.orgName} numberOfLines={1}>{post.organization.name}</Text>
-              </>
-            )}
-          </View>
+          {post.author?.email && (
+            <Text style={styles.authorHandle} numberOfLines={1}>
+              @{post.author.email.split('@')[0]}
+            </Text>
+          )}
         </View>
       </TouchableOpacity>
 
@@ -293,8 +307,8 @@ export function PostCard({
           activeOpacity={0.7}
         >
           <Ionicons name="repeat-outline" size={22} color="#536471" />
-          {post.shareCount > 0 && (
-            <Text style={styles.actionCount}>{formatCount(post.shareCount)}</Text>
+          {post.repostCount > 0 && (
+            <Text style={styles.actionCount}>{formatCount(post.repostCount)}</Text>
           )}
         </TouchableOpacity>
 
@@ -305,6 +319,9 @@ export function PostCard({
           activeOpacity={0.7}
         >
           <Ionicons name="share-social-outline" size={20} color="#536471" />
+          {post.shareCount > 0 && (
+            <Text style={styles.actionCount}>{formatCount(post.shareCount)}</Text>
+          )}
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -347,25 +364,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#536471',
   },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 1,
-  },
   authorHandle: {
     fontSize: 13,
     color: '#536471',
-    flexShrink: 1,
-  },
-  separator: {
-    marginHorizontal: 4,
-    color: '#536471',
-    fontSize: 13,
-  },
-  orgName: {
-    fontSize: 13,
-    color: '#007AFF',
-    flexShrink: 1,
+    marginTop: 1,
   },
   content: {
     fontSize: 15,

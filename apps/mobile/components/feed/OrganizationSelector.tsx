@@ -44,7 +44,7 @@ export function OrganizationSelector({
   const selectorData = data?.myOrganizationsForSelector;
   const organizations = selectorData?.organizations || [];
   const publicOrg = selectorData?.publicOrg;
-  const publicOrgEnabled = selectorData?.publicOrgEnabled ?? true;
+  const publicOrgEnabled = selectorData?.publicOrgEnabled ?? false;
   const showAllOrgsOption = selectorData?.showAllOrgsOption ?? false;
 
   const handleSelectOrg = (org: Organization) => {
@@ -197,7 +197,7 @@ export function OrganizationSelector({
                 </>
               )}
 
-              {/* Public Organization */}
+              {/* Public Organization - show if publicOrgEnabled and publicOrg exists */}
               {publicOrgEnabled && publicOrg && (
                 <>
                   <View style={styles.divider} />

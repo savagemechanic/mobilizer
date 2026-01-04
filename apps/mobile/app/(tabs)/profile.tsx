@@ -28,6 +28,19 @@ export default function ProfileScreen() {
 
   const userName = user?.displayName || `${user?.firstName} ${user?.lastName}`.trim() || 'User';
 
+  // Build cascading location string
+  const getLocationString = () => {
+    if (!user?.location) return null;
+    const parts: string[] = [];
+    if (user.location.state?.name) parts.push(user.location.state.name);
+    if (user.location.lga?.name) parts.push(user.location.lga.name);
+    if (user.location.ward?.name) parts.push(user.location.ward.name);
+    if (user.location.pollingUnit?.name) parts.push(user.location.pollingUnit.name);
+    return parts.length > 0 ? parts.join(' > ') : null;
+  };
+
+  const locationString = getLocationString();
+
   const handleThemeToggle = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
   };
@@ -54,7 +67,16 @@ export default function ProfileScreen() {
             <LeaderBadge level={leaderMembership.leaderLevel} size="large" />
           )}
         </View>
+        {user?.username && (
+          <Text style={styles.username}>@{user.username}</Text>
+        )}
         <Text style={styles.userEmail}>{user?.email}</Text>
+        {locationString && (
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={14} color="#666" />
+            <Text style={styles.locationText}>{locationString}</Text>
+          </View>
+        )}
       </View>
 
       {/* Menu Items */}
@@ -149,10 +171,27 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#000',
   },
+  username: {
+    fontSize: 15,
+    color: '#007AFF',
+    marginTop: 4,
+  },
   userEmail: {
     fontSize: 15,
     color: '#666',
     marginTop: 4,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 16,
+    gap: 4,
+  },
+  locationText: {
+    fontSize: 13,
+    color: '#666',
+    flexShrink: 1,
   },
   menuSection: {
     backgroundColor: '#FFFFFF',

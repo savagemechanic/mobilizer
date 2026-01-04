@@ -227,9 +227,11 @@ export default function OrganizationDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Banner */}
-      {organization.banner && (
+      {/* Banner or Spacer */}
+      {organization.banner ? (
         <Image source={{ uri: organization.banner }} style={styles.banner} resizeMode="cover" />
+      ) : (
+        <View style={{ height: insets.top + 60 }} />
       )}
 
       {/* Content */}

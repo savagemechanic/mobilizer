@@ -183,3 +183,39 @@ export const GET_POLLING_UNIT = gql`
     }
   }
 `;
+
+/**
+ * Query to lookup location by composite code (e.g., "24/07/05/003")
+ * Returns the full location hierarchy if valid
+ */
+export const LOOKUP_LOCATION_BY_CODE = gql`
+  query LookupLocationByCode($code: String!) {
+    lookupLocationByCode(code: $code) {
+      valid
+      error
+      state {
+        id
+        name
+        code
+      }
+      lga {
+        id
+        name
+        code
+        stateId
+      }
+      ward {
+        id
+        name
+        code
+        lgaId
+      }
+      pollingUnit {
+        id
+        name
+        code
+        wardId
+      }
+    }
+  }
+`;

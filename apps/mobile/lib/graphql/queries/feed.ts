@@ -74,6 +74,7 @@ export const POST_FRAGMENT = gql`
     likeCount
     commentCount
     shareCount
+    repostCount
     viewCount
     isPublished
     isLiked

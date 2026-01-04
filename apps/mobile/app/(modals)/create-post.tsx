@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,6 @@ import {
   Platform,
   Modal,
   FlatList,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,10 +20,11 @@ import * as ImagePicker from 'expo-image-picker';
 import { useMutation, useQuery } from '@apollo/client';
 import { CREATE_POST, CreatePostInput } from '@/lib/graphql/mutations/feed';
 import { GET_ORGANIZATIONS_FOR_SELECTOR } from '@/lib/graphql/queries/organizations';
-import { useFeedStore, FeedViewType } from '@/store/feed';
+import { useFeedStore } from '@/store/feed';
 import { useAuthStore } from '@/store/auth';
-import { Button, Avatar } from '@/components/ui';
-import { LocationLevel, Organization, OrganizationsForSelector } from '@/types';
+import { Avatar } from '@/components/ui';
+import { Organization, OrganizationsForSelector } from '@/types';
+import { uploadImage, isFirebaseConfigured, initializeFirebase } from '@/lib/firebase';
 
 const LEVEL_LABELS: Record<string, string> = {
   NATIONAL: 'National',
@@ -45,32 +45,19 @@ export default function CreatePostModal() {
   const params = useLocalSearchParams<{ repostText?: string }>();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
-  const { addPost, currentViewingOrg, currentViewType, currentLocationLevel } = useFeedStore();
-
-  // Determine initial org selection based on view type
-  // - If viewing a specific org: default to that org
-  // - If viewing 'public': default to public org (handled later when data loads)
-  // - If viewing 'all': show "Select" (null org, not defaulting to any)
-  const getInitialOrg = (): Organization | null => {
-    if (currentViewType === 'org' && currentViewingOrg) {
-      return currentViewingOrg;
-    }
-    // For 'all' and 'public', we'll handle this after data loads
-    return null;
-  };
+  const { addPost, currentViewingOrg, currentLocationLevel } = useFeedStore();
 
   const [content, setContent] = useState(params.repostText || '');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [showPollForm, setShowPollForm] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
-  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(getInitialOrg());
-  const [orgSelectionMode, setOrgSelectionMode] = useState<'select' | 'org' | 'public'>(
-    currentViewType === 'all' ? 'select' : currentViewType === 'public' ? 'public' : 'org'
-  );
+  // Auto-select the org that's currently active in the feed
+  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(currentViewingOrg);
   const [selectedLocation, setSelectedLocation] = useState<LocationOption | null>(null);
   const [showOrgPicker, setShowOrgPicker] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const hasInitializedLocation = useRef(false);
 
   const [createPostMutation, { loading }] = useMutation(CREATE_POST);
 
@@ -81,21 +68,16 @@ export default function CreatePostModal() {
     fetchPolicy: 'cache-and-network',
   });
 
-  const orgsForSelector = selectorData?.myOrganizationsForSelector;
-  const publicOrg = orgsForSelector?.publicOrg;
-  const publicOrgEnabled = orgsForSelector?.publicOrgEnabled ?? true;
-  const showAllOrgsOption = orgsForSelector?.showAllOrgsOption ?? false;
-
   // Sort organizations by joinedAt (newest first)
   const organizations = useMemo(() => {
-    const orgs = orgsForSelector?.organizations || [];
+    const orgs = selectorData?.myOrganizationsForSelector?.organizations || [];
     return [...orgs].sort((a, b) => {
       if (!a.joinedAt && !b.joinedAt) return 0;
       if (!a.joinedAt) return 1;
       if (!b.joinedAt) return -1;
       return new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime();
     });
-  }, [orgsForSelector?.organizations]);
+  }, [selectorData?.myOrganizationsForSelector?.organizations]);
 
   const authorName =
     user?.displayName || `${user?.firstName} ${user?.lastName}`.trim() || 'You';
@@ -137,27 +119,14 @@ export default function CreatePostModal() {
     return options;
   }, [user?.location]);
 
-  // Set default org for 'public' view type when data loads
+  // Set location based on currentLocationLevel from feed (if set) - only once on mount
   useEffect(() => {
-    if (currentViewType === 'public' && publicOrg && !selectedOrg) {
-      setSelectedOrg(publicOrg);
-      setOrgSelectionMode('public');
-    }
-  }, [publicOrg, currentViewType]);
-
-  // Set default location based on currentLocationLevel or first available
-  useEffect(() => {
-    if (!selectedLocation && locationOptions.length > 0) {
-      // If viewing a specific location level, use that
-      if (currentLocationLevel) {
-        const matchingOption = locationOptions.find(opt => opt.level === currentLocationLevel);
-        if (matchingOption) {
-          setSelectedLocation(matchingOption);
-          return;
-        }
+    if (!hasInitializedLocation.current && locationOptions.length > 0 && currentLocationLevel) {
+      const matchingOption = locationOptions.find(opt => opt.level === currentLocationLevel);
+      if (matchingOption) {
+        setSelectedLocation(matchingOption);
+        hasInitializedLocation.current = true;
       }
-      // Otherwise default to the first (most general) location option
-      setSelectedLocation(locationOptions[0]);
     }
   }, [currentLocationLevel, locationOptions]);
 
@@ -228,7 +197,18 @@ export default function CreatePostModal() {
 
   // Validate form
   const isValid = () => {
+    // Require content, images, or poll
     if (!content.trim() && selectedImages.length === 0 && !showPollForm) {
+      return false;
+    }
+
+    // Require organization selection
+    if (!selectedOrg) {
+      return false;
+    }
+
+    // Require location selection
+    if (!selectedLocation) {
       return false;
     }
 
@@ -243,6 +223,16 @@ export default function CreatePostModal() {
 
   // Handle submit
   const handleSubmit = async () => {
+    if (!selectedOrg) {
+      alert('Please select an organization');
+      return;
+    }
+
+    if (!selectedLocation) {
+      alert('Please select a location');
+      return;
+    }
+
     if (!isValid()) {
       alert('Please add some content, images, or a poll');
       return;
@@ -265,9 +255,27 @@ export default function CreatePostModal() {
         input.locationLevel = selectedLocation.level;
       }
 
-      // Add media URLs (for now, just URIs - in production, upload to server first)
+      // Upload images to Firebase if configured
       if (selectedImages.length > 0) {
-        input.mediaUrls = selectedImages; // TODO: Upload images and get URLs
+        if (isFirebaseConfigured() && user?.id) {
+          try {
+            initializeFirebase();
+            const uploadedUrls = await Promise.all(
+              selectedImages.map((uri, index) => {
+                const fileName = `post_${Date.now()}_${index}.jpg`;
+                return uploadImage(uri, 'post', user.id, fileName);
+              })
+            );
+            input.mediaUrls = uploadedUrls;
+          } catch (error) {
+            console.error('Failed to upload images:', error);
+            alert('Failed to upload images. Please try again.');
+            return;
+          }
+        } else {
+          // Fallback: use local URIs (won't work in production)
+          input.mediaUrls = selectedImages;
+        }
         input.type = 'IMAGE';
       }
 
@@ -302,9 +310,8 @@ export default function CreatePostModal() {
   };
 
   // Handle org selection
-  const handleSelectOrg = (org: Organization | null, mode: 'org' | 'public' | 'select') => {
+  const handleSelectOrg = (org: Organization) => {
     setSelectedOrg(org);
-    setOrgSelectionMode(mode);
     setShowOrgPicker(false);
   };
 
@@ -355,34 +362,17 @@ export default function CreatePostModal() {
                 onPress={() => setShowOrgPicker(true)}
                 disabled={loading}
               >
-                {selectedOrg && orgSelectionMode === 'org' ? (
+                {selectedOrg ? (
                   <>
                     <Avatar uri={selectedOrg.logo} name={selectedOrg.name} size={16} />
                     <Text style={styles.inlineSelectText} numberOfLines={1}>
                       {selectedOrg.name}
                     </Text>
-                  </>
-                ) : selectedOrg && orgSelectionMode === 'public' ? (
-                  <>
-                    <Ionicons name="globe-outline" size={14} color="#34C759" />
-                    <Text style={[styles.inlineSelectText, { color: '#34C759' }]}>Public</Text>
-                  </>
-                ) : orgSelectionMode === 'select' ? (
-                  <>
-                    <Ionicons name="layers-outline" size={14} color="#007AFF" />
-                    <Text style={[styles.inlineSelectText, { color: '#007AFF' }]}>All Orgs</Text>
-                  </>
-                ) : !selectedOrg ? (
-                  <>
-                    <Ionicons name="business-outline" size={14} color="#007AFF" />
-                    <Text style={[styles.inlineSelectText, { color: '#007AFF' }]}>Select org</Text>
                   </>
                 ) : (
                   <>
-                    <Avatar uri={selectedOrg.logo} name={selectedOrg.name} size={16} />
-                    <Text style={styles.inlineSelectText} numberOfLines={1}>
-                      {selectedOrg.name}
-                    </Text>
+                    <Ionicons name="business-outline" size={14} color="#007AFF" />
+                    <Text style={[styles.inlineSelectText, { color: '#007AFF' }]}>Select org</Text>
                   </>
                 )}
                 <Ionicons name="chevron-down" size={12} color="#666" />
@@ -396,8 +386,8 @@ export default function CreatePostModal() {
                   disabled={loading}
                 >
                   <Ionicons name="location" size={14} color="#007AFF" />
-                  <Text style={styles.inlineSelectText} numberOfLines={1}>
-                    {selectedLocation?.name || 'Location'}
+                  <Text style={[styles.inlineSelectText, !selectedLocation && { color: '#007AFF' }]} numberOfLines={1}>
+                    {selectedLocation?.name || 'Select location'}
                   </Text>
                   <Ionicons name="chevron-down" size={12} color="#666" />
                 </TouchableOpacity>
@@ -549,17 +539,17 @@ export default function CreatePostModal() {
             )}
 
             {/* User's organizations (sorted by joinedAt, newest first) */}
-            {organizations.length > 0 && (
+            {organizations.length > 0 ? (
               <View style={styles.orgSection}>
-                <Text style={styles.orgSectionTitle}>Your Organizations</Text>
+                <Text style={styles.orgSectionTitle}>Select Organization</Text>
                 {organizations.map((org) => (
                   <TouchableOpacity
                     key={org.id}
                     style={[
                       styles.orgItem,
-                      orgSelectionMode === 'org' && selectedOrg?.id === org.id && styles.orgItemSelected,
+                      selectedOrg?.id === org.id && styles.orgItemSelected,
                     ]}
-                    onPress={() => handleSelectOrg(org, 'org')}
+                    onPress={() => handleSelectOrg(org)}
                     activeOpacity={0.6}
                   >
                     <View style={styles.orgItemContent}>
@@ -571,118 +561,13 @@ export default function CreatePostModal() {
                         </Text>
                       </View>
                     </View>
-                    {orgSelectionMode === 'org' && selectedOrg?.id === org.id && (
+                    {selectedOrg?.id === org.id && (
                       <Ionicons name="checkmark-circle" size={24} color="#007AFF" />
                     )}
                   </TouchableOpacity>
                 ))}
               </View>
-            )}
-
-            {/* All Organizations option - only show if user has at least one non-public org */}
-            {showAllOrgsOption && (
-              <>
-                <View style={styles.orgDivider} />
-                <TouchableOpacity
-                  style={[
-                    styles.orgItem,
-                    orgSelectionMode === 'select' && styles.orgItemSelected,
-                  ]}
-                  onPress={() => handleSelectOrg(null, 'select')}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.orgItemContent}>
-                    <View style={[styles.specialOrgIcon, { backgroundColor: '#E8F0FE' }]}>
-                      <Ionicons name="layers-outline" size={24} color="#007AFF" />
-                    </View>
-                    <View style={styles.orgItemInfo}>
-                      <Text style={styles.orgItemName}>All Organizations</Text>
-                      <Text style={styles.orgItemDescription}>
-                        See conversations from all your groups, and the public
-                      </Text>
-                    </View>
-                  </View>
-                  {orgSelectionMode === 'select' && (
-                    <Ionicons name="checkmark-circle" size={24} color="#007AFF" />
-                  )}
-                </TouchableOpacity>
-              </>
-            )}
-
-            {/* Public option */}
-            {publicOrgEnabled && publicOrg && (
-              <>
-                <View style={styles.orgDivider} />
-                <TouchableOpacity
-                  style={[
-                    styles.orgItem,
-                    orgSelectionMode === 'public' && styles.orgItemSelected,
-                  ]}
-                  onPress={() => handleSelectOrg(publicOrg, 'public')}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.orgItemContent}>
-                    <View style={[styles.specialOrgIcon, { backgroundColor: '#E8F9ED' }]}>
-                      <Ionicons name="globe-outline" size={24} color="#34C759" />
-                    </View>
-                    <View style={styles.orgItemInfo}>
-                      <Text style={styles.orgItemName}>Public</Text>
-                      <Text style={styles.orgItemDescription}>
-                        See conversations by the public in your locations
-                      </Text>
-                    </View>
-                  </View>
-                  {orgSelectionMode === 'public' && (
-                    <Ionicons name="checkmark-circle" size={24} color="#34C759" />
-                  )}
-                </TouchableOpacity>
-              </>
-            )}
-
-            <View style={styles.orgDivider} />
-
-            {/* Join by code */}
-            <TouchableOpacity
-              style={styles.orgItem}
-              onPress={() => {
-                setShowOrgPicker(false);
-                setTimeout(() => {
-                  Alert.prompt(
-                    'Join Organization',
-                    'Enter the invite code to join an organization',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Join',
-                        onPress: (code: string | undefined) => {
-                          if (code?.trim()) {
-                            // TODO: Call joinOrganizationByCode mutation
-                            Alert.alert('Coming Soon', 'Join by code will be available soon');
-                          }
-                        },
-                      },
-                    ],
-                    'plain-text'
-                  );
-                }, 300);
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.orgItemContent}>
-                <View style={[styles.specialOrgIcon, { backgroundColor: '#FFF3E0' }]}>
-                  <Ionicons name="key-outline" size={24} color="#FF9800" />
-                </View>
-                <View style={styles.orgItemInfo}>
-                  <Text style={styles.orgItemName}>Join by code</Text>
-                  <Text style={styles.orgItemDescription}>
-                    Enter an invite code to join an organization
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
-            </TouchableOpacity>
-
-            {organizations.length === 0 && !publicOrgEnabled && (
+            ) : (
               <View style={styles.emptyOrgs}>
                 <Text style={styles.emptyOrgsText}>No organizations found</Text>
                 <Text style={styles.emptyOrgsSubtext}>

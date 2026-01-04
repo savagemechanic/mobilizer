@@ -24,6 +24,7 @@ import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import { UPDATE_PROFILE } from '@/lib/graphql/mutations/users';
 import { GET_PRESIGNED_UPLOAD_URL, CHECK_UPLOAD_CONFIGURED } from '@/lib/graphql/mutations/upload';
 import { PROFESSIONS } from '@/types';
+import { uploadImage, isFirebaseConfigured, initializeFirebase } from '@/lib/firebase';
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -65,57 +66,76 @@ export default function EditProfileScreen() {
     },
   });
 
-  // Check if upload is configured
+  // Check if upload is configured (S3)
   const { data: uploadConfigData } = useQuery(CHECK_UPLOAD_CONFIGURED);
-  const isUploadConfigured = uploadConfigData?.uploadConfigured ?? false;
+  const isS3Configured = uploadConfigData?.uploadConfigured ?? false;
+
+  // Check if Firebase is configured
+  const firebaseConfigured = isFirebaseConfigured();
+  const isUploadConfigured = isS3Configured || firebaseConfigured;
 
   const [getPresignedUrl] = useMutation(GET_PRESIGNED_UPLOAD_URL);
 
-  // Upload image to S3
-  const uploadImageToS3 = async (uri: string): Promise<string | null> => {
-    try {
-      // Get file info
-      const fileName = uri.split('/').pop() || 'avatar.jpg';
-      const match = /\.(\w+)$/.exec(fileName);
-      const fileType = match ? `image/${match[1]}` : 'image/jpeg';
-
-      // Get presigned URL
-      const { data } = await getPresignedUrl({
-        variables: {
-          type: 'avatar',
-          fileName,
-          contentType: fileType,
-        },
-      });
-
-      if (!data?.getPresignedUploadUrl) {
-        throw new Error('Failed to get upload URL');
+  // Upload image - tries Firebase first, then S3
+  const uploadImageToStorage = async (uri: string): Promise<string | null> => {
+    // Try Firebase first if configured
+    if (firebaseConfigured && user?.id) {
+      try {
+        initializeFirebase();
+        const fileName = uri.split('/').pop() || 'avatar.jpg';
+        const url = await uploadImage(uri, 'avatar', user.id, fileName);
+        return url;
+      } catch (error) {
+        console.error('Firebase upload error, falling back to S3:', error);
+        // Fall through to S3
       }
-
-      const { uploadUrl, fileUrl } = data.getPresignedUploadUrl;
-
-      // Fetch the image as blob
-      const response = await fetch(uri);
-      const blob = await response.blob();
-
-      // Upload to S3
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: blob,
-        headers: {
-          'Content-Type': fileType,
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload image');
-      }
-
-      return fileUrl;
-    } catch (error) {
-      console.error('Upload error:', error);
-      return null;
     }
+
+    // Try S3 if configured
+    if (isS3Configured) {
+      try {
+        const fileName = uri.split('/').pop() || 'avatar.jpg';
+        const match = /\.(\w+)$/.exec(fileName);
+        const fileType = match ? `image/${match[1]}` : 'image/jpeg';
+
+        const { data } = await getPresignedUrl({
+          variables: {
+            type: 'avatar',
+            fileName,
+            contentType: fileType,
+          },
+        });
+
+        if (!data?.getPresignedUploadUrl) {
+          throw new Error('Failed to get upload URL');
+        }
+
+        const { uploadUrl, fileUrl } = data.getPresignedUploadUrl;
+
+        const response = await fetch(uri);
+        const blob = await response.blob();
+
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'PUT',
+          body: blob,
+          headers: {
+            'Content-Type': fileType,
+          },
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload image');
+        }
+
+        return fileUrl;
+      } catch (error) {
+        console.error('S3 upload error:', error);
+        return null;
+      }
+    }
+
+    console.error('No upload service configured');
+    return null;
   };
 
   const handleLocationChange = (newLocation: LocationValue) => {
@@ -210,7 +230,7 @@ export default function EditProfileScreen() {
       if (isUploadConfigured) {
         setUploadingPhoto(true);
         try {
-          const avatarUrl = await uploadImageToS3(newAvatarUri);
+          const avatarUrl = await uploadImageToStorage(newAvatarUri);
           if (avatarUrl) {
             input.avatar = avatarUrl;
           } else {
