@@ -151,4 +151,20 @@ export class PostsResolver {
   ) {
     return this.postsService.castVote(user.id, pollId, optionId);
   }
+
+  @Query(() => String, { description: 'Get share text for a post with location context (for external sharing - includes marketing text).' })
+  @UseGuards(GqlAuthGuard)
+  async postShareText(
+    @Args('postId') postId: string,
+  ) {
+    return this.postsService.getShareText(postId, true);
+  }
+
+  @Query(() => String, { description: 'Get repost text for a post (for internal repost - no marketing text).' })
+  @UseGuards(GqlAuthGuard)
+  async postRepostText(
+    @Args('postId') postId: string,
+  ) {
+    return this.postsService.getShareText(postId, false);
+  }
 }

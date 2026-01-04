@@ -325,18 +325,29 @@ export class PostsService {
       },
     });
 
+    // Determine organization - use Public org if none specified
+    let orgId = input.orgId;
+    if (!orgId) {
+      const settings = await this.prisma.platformSettings.findUnique({
+        where: { id: 'default' },
+      });
+      if (settings?.publicOrgEnabled && settings?.publicOrgId) {
+        orgId = settings.publicOrgId;
+      }
+    }
+
+    // Build location data based on locationLevel if provided
+    const locationData = this.buildLocationData(user, input.locationLevel);
+
     const post = await this.prisma.post.create({
       data: {
         authorId: userId,
         content: input.content,
         type: input.type as any,
-        orgId: input.orgId,
+        orgId,
         mediaUrls: input.mediaUrls || [],
-        // Set post location from user's location
-        stateId: user?.stateId,
-        lgaId: user?.lgaId,
-        wardId: user?.wardId,
-        pollingUnitId: user?.pollingUnitId,
+        locationLevel: input.locationLevel,
+        ...locationData,
       },
       include: {
         author: {
@@ -346,6 +357,7 @@ export class PostsService {
             lastName: true,
             displayName: true,
             avatar: true,
+            username: true,
           },
         },
         organization: true,
@@ -946,5 +958,190 @@ export class PostsService {
       },
     });
     return !!like;
+  }
+
+  /**
+   * Generate share text for a post with location context.
+   *
+   * Format:
+   * "{content}"
+   * -- {authorName} in {STATE} > {LGA} > {Ward} ward > {PollingUnit} polling unit.
+   *
+   * Join the conversation (code: {inviteCode}) in your location.
+   *
+   * Download the Mobiliser app today, on iPhone or Android.
+   * {appDownloadLink}
+   *
+   * @param postId - The post ID
+   * @param includeMarketing - Whether to include app download/invite code text (for external shares)
+   */
+  async getShareText(postId: string, includeMarketing: boolean = true): Promise<string> {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      include: {
+        author: {
+          select: {
+            firstName: true,
+            lastName: true,
+            displayName: true,
+          },
+        },
+        organization: {
+          select: {
+            inviteCode: true,
+          },
+        },
+        state: {
+          select: { name: true },
+        },
+        lga: {
+          select: { name: true },
+        },
+        ward: {
+          select: { name: true },
+        },
+        pollingUnit: {
+          select: { name: true },
+        },
+      },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    // Build author name
+    const authorName = post.author.displayName ||
+      `${post.author.firstName} ${post.author.lastName}`.trim();
+
+    // Truncate content if too long (first ~200 chars for share)
+    let contentPreview = post.content;
+    if (contentPreview.length > 200) {
+      contentPreview = contentPreview.substring(0, 200).trim() + '...';
+    }
+
+    // Build location string
+    // Format: STATE > LGA > Ward ward > PollingUnit polling unit
+    const locationString = this.buildLocationString(
+      (post as any).state?.name,
+      (post as any).lga?.name,
+      (post as any).ward?.name,
+      (post as any).pollingUnit?.name,
+    );
+
+    // Build the share text
+    let shareText = `"${contentPreview}"\n-- ${authorName}${locationString}.`;
+
+    // Add marketing text for external shares
+    if (includeMarketing) {
+      // Add invite code line
+      if (post.organization?.inviteCode) {
+        shareText += `\n\nJoin the conversation (code: ${post.organization.inviteCode}) in your location.`;
+      } else {
+        shareText += `\n\nJoin the conversation in your location.`;
+      }
+
+      // Add download CTA
+      shareText += `\n\nDownload the Mobiliser app today, on iPhone or Android.`;
+
+      // Add app download link (TODO: Replace with actual link)
+      shareText += `\nhttps://mobiliser.app/download`;
+    }
+
+    return shareText;
+  }
+
+  /**
+   * Build location string with level types for each part.
+   * Format: STATE > LGA > Ward ward > PollingUnit polling unit
+   * Each level includes its type suffix.
+   */
+  private buildLocationString(
+    stateName?: string,
+    lgaName?: string,
+    wardName?: string,
+    pollingUnitName?: string,
+  ): string {
+    const parts: string[] = [];
+
+    // Add each level with its type
+    if (stateName) {
+      parts.push(stateName.toUpperCase());
+    }
+    if (lgaName) {
+      parts.push(lgaName);
+    }
+    if (wardName) {
+      parts.push(`${wardName} ward`);
+    }
+    if (pollingUnitName) {
+      parts.push(`${pollingUnitName} polling unit`);
+    }
+
+    if (parts.length === 0) return '';
+
+    // Join with " > "
+    return ` in ${parts.join(' > ')}`;
+  }
+
+  /**
+   * Build location data based on the user's location and selected level.
+   * IMPORTANT: Only sets the EXACT location level selected to prevent cascade.
+   * Posts should only appear at their exact selected level, not at higher levels.
+   */
+  private buildLocationData(
+    user: { stateId: string | null; lgaId: string | null; wardId: string | null; pollingUnitId: string | null } | null,
+    locationLevel?: string,
+  ): { stateId?: string; lgaId?: string; wardId?: string; pollingUnitId?: string } {
+    if (!user) return {};
+
+    // If no location level specified, default to polling unit level (most specific)
+    if (!locationLevel) {
+      if (user.pollingUnitId) {
+        return { pollingUnitId: user.pollingUnitId };
+      } else if (user.wardId) {
+        return { wardId: user.wardId };
+      } else if (user.lgaId) {
+        return { lgaId: user.lgaId };
+      } else if (user.stateId) {
+        return { stateId: user.stateId };
+      }
+      return {};
+    }
+
+    // ONLY set the specific location level selected - NO cascade
+    switch (locationLevel) {
+      case 'COUNTRY':
+        // Country level - no specific location filter (visible to all in country)
+        return {};
+      case 'STATE':
+        return {
+          stateId: user.stateId || undefined,
+        };
+      case 'LGA':
+        return {
+          lgaId: user.lgaId || undefined,
+        };
+      case 'WARD':
+        return {
+          wardId: user.wardId || undefined,
+        };
+      case 'POLLING_UNIT':
+        return {
+          pollingUnitId: user.pollingUnitId || undefined,
+        };
+      default:
+        // Default to most specific level available
+        if (user.pollingUnitId) {
+          return { pollingUnitId: user.pollingUnitId };
+        } else if (user.wardId) {
+          return { wardId: user.wardId };
+        } else if (user.lgaId) {
+          return { lgaId: user.lgaId };
+        } else if (user.stateId) {
+          return { stateId: user.stateId };
+        }
+        return {};
+    }
   }
 }

@@ -201,7 +201,14 @@ model User {
   // Platform Admin flag (God Mode - can manage all movements)
   isPlatformAdmin   Boolean           @default(false)
 
+  // Username (handle with @ prefix - like Twitter/X)
+  username          String?           @unique
+
+  // Profession from predefined list
+  profession        String?
+
   @@index([email])
+  @@index([username])
   @@index([phoneNumber])
   @@index([isActive])
   @@map("users")
@@ -295,6 +302,20 @@ model MovementWallet {
 
   @@index([movementId])
   @@map("movement_wallets")
+}
+
+// ============================================
+// PLATFORM SETTINGS (Feature Flags)
+// ============================================
+
+model PlatformSettings {
+  id                String    @id @default("default")
+  publicOrgEnabled  Boolean   @default(true)
+  publicOrgId       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("platform_settings")
 }
 
 // ============================================
@@ -412,6 +433,7 @@ model Post {
   updatedAt      DateTime  @updatedAt
 
   // Location fields - posts are tied to a location
+  locationLevel  String?   // 'STATE' | 'LGA' | 'WARD' | 'POLLING_UNIT' - user's explicit choice
   stateId        String?
   lgaId          String?
   wardId         String?

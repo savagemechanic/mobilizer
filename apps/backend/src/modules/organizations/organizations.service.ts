@@ -121,6 +121,11 @@ export class OrganizationsService {
   }
 
   async create(userId: string, input: CreateOrgInput) {
+    // Validate description length (40 char limit)
+    if (input.description && input.description.length > 40) {
+      throw new BadRequestException('Description must be 40 characters or less');
+    }
+
     // Generate slug from name
     const slug = this.generateSlug(input.name);
 
@@ -614,15 +619,16 @@ export class OrganizationsService {
   }
 
   /**
-   * Generate a unique 8-character invite code
+   * Generate a unique 3-letter uppercase invite code (e.g., APC, PDP, NGA)
    */
   private async generateInviteCode(): Promise<string> {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    const length = 8;
+    // 3-letter uppercase codes (e.g., APC, PDP, NGA)
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const length = 3;
 
     let code: string;
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 50; // More attempts since 3-letter codes have fewer combinations
 
     do {
       code = Array.from({ length }, () =>
@@ -641,7 +647,7 @@ export class OrganizationsService {
       attempts++;
     } while (attempts < maxAttempts);
 
-    throw new ConflictException('Failed to generate unique invite code');
+    throw new ConflictException('Failed to generate unique invite code. Try a custom code.');
   }
 
   /**
@@ -783,5 +789,83 @@ export class OrganizationsService {
     });
 
     return membership?.isAdmin ?? false;
+  }
+
+  /**
+   * Get organizations for the mobile selector component.
+   * Returns user's orgs sorted by join date (newest first),
+   * along with public org info and display flags.
+   */
+  async getOrganizationsForSelector(userId: string) {
+    // Get user's organizations sorted by join date (newest first)
+    const memberships = await this.prisma.orgMembership.findMany({
+      where: {
+        userId,
+        isActive: true,
+        organization: {
+          isActive: true,
+        },
+      },
+      include: {
+        organization: {
+          include: {
+            state: true,
+            lga: true,
+            ward: true,
+            pollingUnit: true,
+          },
+        },
+      },
+      orderBy: { joinedAt: 'desc' },
+    });
+
+    const organizations = memberships.map((m) => ({
+      ...m.organization,
+      joinedAt: m.joinedAt,
+    }));
+
+    // Get platform settings for public org
+    const settings = await this.prisma.platformSettings.findUnique({
+      where: { id: 'default' },
+    });
+
+    let publicOrg = null;
+    if (settings?.publicOrgId) {
+      publicOrg = await this.prisma.organization.findUnique({
+        where: { id: settings.publicOrgId },
+      });
+    }
+
+    // Filter out public org from regular organizations list
+    const filteredOrganizations = organizations.filter(
+      (org) => org.id !== settings?.publicOrgId,
+    );
+
+    // Show "All Organizations" only if user has 2+ orgs (excluding public)
+    const showAllOrgsOption = filteredOrganizations.length >= 2;
+
+    return {
+      organizations: filteredOrganizations,
+      publicOrg,
+      publicOrgEnabled: settings?.publicOrgEnabled ?? false,
+      showAllOrgsOption,
+    };
+  }
+
+  /**
+   * Get the Public organization
+   */
+  async getPublicOrganization() {
+    const settings = await this.prisma.platformSettings.findUnique({
+      where: { id: 'default' },
+    });
+
+    if (!settings?.publicOrgId || !settings?.publicOrgEnabled) {
+      return null;
+    }
+
+    return this.prisma.organization.findUnique({
+      where: { id: settings.publicOrgId },
+    });
   }
 }

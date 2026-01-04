@@ -114,6 +114,27 @@ export class MemberOrg {
 }
 
 @ObjectType()
+export class OrganizationWithJoinDate extends OrganizationEntity {
+  @Field({ nullable: true })
+  joinedAt?: Date;
+}
+
+@ObjectType()
+export class OrganizationsForSelector {
+  @Field(() => [OrganizationWithJoinDate])
+  organizations: OrganizationWithJoinDate[];
+
+  @Field(() => OrganizationEntity, { nullable: true })
+  publicOrg?: OrganizationEntity;
+
+  @Field()
+  publicOrgEnabled: boolean;
+
+  @Field()
+  showAllOrgsOption: boolean;
+}
+
+@ObjectType()
 export class OrgMembershipEntity {
   @Field(() => ID)
   id: string;

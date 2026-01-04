@@ -48,6 +48,12 @@ export class User {
   @Field({ nullable: true })
   phoneNumber?: string;
 
+  @Field({ nullable: true })
+  username?: string;
+
+  @Field({ nullable: true })
+  profession?: string;
+
   @Field()
   isEmailVerified: boolean;
 

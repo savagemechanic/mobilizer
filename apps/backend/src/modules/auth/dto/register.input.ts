@@ -1,5 +1,5 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsEmail, IsNotEmpty, MinLength, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, MinLength, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 
 @InputType()
 export class RegisterInput {
@@ -58,4 +58,17 @@ export class RegisterInput {
   @IsOptional()
   @IsString()
   locationCode?: string;
+
+  @Field()
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(3, { message: 'Username must be at least 3 characters' })
+  @MaxLength(30, { message: 'Username must be at most 30 characters' })
+  @Matches(/^[a-z0-9_]+$/, { message: 'Username can only contain lowercase letters, numbers, and underscores' })
+  username: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  profession?: string;
 }

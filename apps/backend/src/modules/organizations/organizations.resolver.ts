@@ -4,7 +4,7 @@ import { OrganizationsService } from './organizations.service';
 import { CreateOrgInput } from './dto/create-org.input';
 import { OrganizationFilterInput } from './dto/org-filter.input';
 import { MakeLeaderInput } from './dto/make-leader.input';
-import { OrganizationEntity, OrgMembershipEntity } from './entities/organization.entity';
+import { OrganizationEntity, OrgMembershipEntity, OrganizationsForSelector } from './entities/organization.entity';
 import { GqlAuthGuard } from '../../common/guards/gql-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -44,6 +44,18 @@ export class OrganizationsResolver {
   @UseGuards(GqlAuthGuard)
   async myOrganizations(@CurrentUser() user: any) {
     return this.organizationsService.getUserOrganizations(user.id);
+  }
+
+  @Query(() => OrganizationsForSelector)
+  @UseGuards(GqlAuthGuard)
+  async myOrganizationsForSelector(@CurrentUser() user: any) {
+    return this.organizationsService.getOrganizationsForSelector(user.id);
+  }
+
+  @Query(() => OrganizationEntity, { nullable: true })
+  @UseGuards(GqlAuthGuard)
+  async publicOrganization() {
+    return this.organizationsService.getPublicOrganization();
   }
 
   @Mutation(() => OrganizationEntity)

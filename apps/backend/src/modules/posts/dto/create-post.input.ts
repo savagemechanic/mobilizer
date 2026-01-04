@@ -49,4 +49,9 @@ export class CreatePostInput {
   @ValidateNested()
   @Type(() => CreatePollInput)
   poll?: CreatePollInput;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  locationLevel?: string; // 'STATE' | 'LGA' | 'WARD' | 'POLLING_UNIT'
 }

@@ -417,4 +417,86 @@ export class PlatformAdminService {
 
     return user;
   }
+
+  /**
+   * Get platform settings
+   */
+  async getPlatformSettings() {
+    let settings = await this.prisma.platformSettings.findUnique({
+      where: { id: 'default' },
+    });
+
+    // Create default settings if not exists
+    if (!settings) {
+      settings = await this.prisma.platformSettings.create({
+        data: {
+          id: 'default',
+          publicOrgEnabled: true,
+        },
+      });
+    }
+
+    return settings;
+  }
+
+  /**
+   * Toggle public organization on/off
+   */
+  async togglePublicOrg(enabled: boolean, userId: string) {
+    const settings = await this.prisma.platformSettings.upsert({
+      where: { id: 'default' },
+      update: { publicOrgEnabled: enabled },
+      create: {
+        id: 'default',
+        publicOrgEnabled: enabled,
+      },
+    });
+
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'UPDATE',
+        entityType: 'PlatformSettings',
+        entityId: 'default',
+        metadata: {
+          action: 'toggle_public_org',
+          publicOrgEnabled: enabled,
+        },
+      },
+    });
+
+    return settings;
+  }
+
+  /**
+   * Set the public organization ID
+   */
+  async setPublicOrgId(orgId: string, userId: string) {
+    const settings = await this.prisma.platformSettings.upsert({
+      where: { id: 'default' },
+      update: { publicOrgId: orgId },
+      create: {
+        id: 'default',
+        publicOrgEnabled: true,
+        publicOrgId: orgId,
+      },
+    });
+
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'UPDATE',
+        entityType: 'PlatformSettings',
+        entityId: 'default',
+        metadata: {
+          action: 'set_public_org_id',
+          publicOrgId: orgId,
+        },
+      },
+    });
+
+    return settings;
+  }
 }

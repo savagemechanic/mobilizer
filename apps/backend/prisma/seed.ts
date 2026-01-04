@@ -7,6 +7,81 @@ const prisma = new PrismaClient();
 // Check if we should seed full locations from SQL file
 const SEED_FULL_LOCATIONS = process.env.SEED_FULL_LOCATIONS === 'true' || process.argv.includes('--full-locations');
 
+/**
+ * Generate a unique 3-letter uppercase invite code
+ */
+async function generateUniqueInviteCode(usedCodes: Set<string>): Promise<string> {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const maxAttempts = 100;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const code = Array.from({ length: 3 }, () =>
+      chars.charAt(Math.floor(Math.random() * chars.length))
+    ).join('');
+
+    // Check if code is already used in this batch or in database
+    if (!usedCodes.has(code)) {
+      const existing = await prisma.organization.findUnique({
+        where: { inviteCode: code },
+      });
+
+      if (!existing) {
+        usedCodes.add(code);
+        return code;
+      }
+    }
+  }
+
+  throw new Error('Failed to generate unique invite code after 100 attempts');
+}
+
+/**
+ * Update all organizations with unique 3-letter invite codes
+ */
+async function updateAllOrganizationInviteCodes(): Promise<void> {
+  console.log('\n🔑 Updating all organizations with 3-letter invite codes...');
+
+  // Get all organizations
+  const organizations = await prisma.organization.findMany({
+    select: { id: true, name: true, inviteCode: true },
+  });
+
+  // Track used codes to ensure uniqueness
+  const usedCodes = new Set<string>();
+
+  // First, collect any existing valid 3-letter codes
+  for (const org of organizations) {
+    if (org.inviteCode && /^[A-Z]{3}$/.test(org.inviteCode)) {
+      usedCodes.add(org.inviteCode);
+    }
+  }
+
+  let updatedCount = 0;
+
+  for (const org of organizations) {
+    // Skip if already has a valid 3-letter code
+    if (org.inviteCode && /^[A-Z]{3}$/.test(org.inviteCode)) {
+      console.log(`  ✓ ${org.name}: ${org.inviteCode} (already valid)`);
+      continue;
+    }
+
+    // Generate new unique code
+    const newCode = await generateUniqueInviteCode(usedCodes);
+
+    // Update organization
+    await prisma.organization.update({
+      where: { id: org.id },
+      data: { inviteCode: newCode },
+    });
+
+    console.log(`  ✓ ${org.name}: ${org.inviteCode || '(none)'} → ${newCode}`);
+    updatedCount++;
+  }
+
+  console.log(`\n✅ Updated ${updatedCount} organizations with new 3-letter codes`);
+  console.log(`   Total organizations: ${organizations.length}`);
+}
+
 async function main() {
   console.log('Starting seed...');
 
@@ -684,6 +759,68 @@ async function main() {
     });
   }
   console.log('Created user wallets');
+
+  // ============================================
+  // PUBLIC ORGANIZATION & PLATFORM SETTINGS
+  // ============================================
+
+  // Create the global Public organization (no movement - system-wide)
+  // Note: Public org doesn't belong to any movement
+  const publicOrg = await prisma.organization.upsert({
+    where: { slug: 'public' },
+    update: {},
+    create: {
+      name: 'Public',
+      slug: 'public',
+      description: 'See conversations by the public',
+      level: OrgLevel.NATIONAL,
+      movementId: movement1.id, // Required field, use first movement as placeholder
+      isVerified: true,
+      isActive: true,
+      countryId: nigeria.id,
+      memberCount: 0,
+    },
+  });
+  console.log('Created Public organization:', publicOrg.name);
+
+  // Create platform settings with public org reference
+  await prisma.platformSettings.upsert({
+    where: { id: 'default' },
+    update: { publicOrgId: publicOrg.id },
+    create: {
+      id: 'default',
+      publicOrgEnabled: true,
+      publicOrgId: publicOrg.id,
+    },
+  });
+  console.log('Created Platform Settings with Public org enabled');
+
+  // Add all existing users to Public org
+  for (const user of allUsers) {
+    await prisma.orgMembership.upsert({
+      where: { userId_orgId: { userId: user.id, orgId: publicOrg.id } },
+      update: {},
+      create: {
+        userId: user.id,
+        orgId: publicOrg.id,
+        isAdmin: false,
+        approvedAt: new Date(),
+      },
+    });
+  }
+  console.log('Added all users to Public organization');
+
+  // Update public org member count
+  await prisma.organization.update({
+    where: { id: publicOrg.id },
+    data: { memberCount: allUsers.length },
+  });
+
+  // ============================================
+  // UPDATE ALL ORGANIZATIONS WITH 3-LETTER CODES
+  // ============================================
+
+  await updateAllOrganizationInviteCodes();
 
   // ============================================
   // SUMMARY

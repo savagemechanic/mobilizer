@@ -12,6 +12,7 @@ import { CreatePlatformAdminUserInput } from './dto/create-platform-admin-user.i
 import { PlatformStats } from './entities/platform-stats.entity';
 import { SystemHealth } from './entities/system-health.entity';
 import { PaginatedUsersResponse } from './entities/paginated-users.entity';
+import { PlatformSettingsEntity } from './entities/platform-settings.entity';
 
 @Resolver()
 @UseGuards(GqlAuthGuard, PlatformAdminGuard)
@@ -91,5 +92,29 @@ export class PlatformAdminResolver {
     @Args('input') input: CreatePlatformAdminUserInput,
   ): Promise<any> {
     return this.platformAdminService.createPlatformAdminUser(input, currentUser.id);
+  }
+
+  @Query(() => PlatformSettingsEntity)
+  @PlatformAdmin()
+  async platformSettings(): Promise<any> {
+    return this.platformAdminService.getPlatformSettings();
+  }
+
+  @Mutation(() => PlatformSettingsEntity)
+  @PlatformAdmin()
+  async togglePublicOrg(
+    @CurrentUser() currentUser: any,
+    @Args('enabled') enabled: boolean,
+  ): Promise<any> {
+    return this.platformAdminService.togglePublicOrg(enabled, currentUser.id);
+  }
+
+  @Mutation(() => PlatformSettingsEntity)
+  @PlatformAdmin()
+  async setPublicOrgId(
+    @CurrentUser() currentUser: any,
+    @Args('orgId') orgId: string,
+  ): Promise<any> {
+    return this.platformAdminService.setPublicOrgId(orgId, currentUser.id);
   }
 }

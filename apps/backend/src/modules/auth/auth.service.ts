@@ -17,7 +17,7 @@ export class AuthService {
   ) {}
 
   async register(input: RegisterInput): Promise<AuthPayload> {
-    // Check if user exists
+    // Check if user exists with this email or phone
     const existingUser = await this.prisma.user.findFirst({
       where: {
         OR: [
@@ -29,6 +29,16 @@ export class AuthService {
 
     if (existingUser) {
       throw new ConflictException('User with this email or phone already exists');
+    }
+
+    // Check if username is already taken
+    const normalizedUsername = input.username.toLowerCase();
+    const existingUsername = await this.prisma.user.findUnique({
+      where: { username: normalizedUsername },
+    });
+
+    if (existingUsername) {
+      throw new ConflictException('Username is already taken');
     }
 
     // Hash password
@@ -44,6 +54,8 @@ export class AuthService {
         middleName: input.middleName,
         phoneNumber: input.phoneNumber,
         displayName: `${input.firstName} ${input.lastName}`,
+        username: normalizedUsername,
+        profession: input.profession,
         countryId: input.countryId,
         stateId: input.stateId,
         lgaId: input.lgaId,
@@ -58,6 +70,9 @@ export class AuthService {
         pollingUnit: true,
       },
     });
+
+    // Auto-join user to Public organization if enabled
+    await this.autoJoinPublicOrg(user.id);
 
     // Generate tokens
     const tokens = await this.generateTokens(user.id, user.email);
@@ -524,6 +539,8 @@ export class AuthService {
       avatar: user.avatar,
       bio: user.bio,
       phoneNumber: user.phoneNumber,
+      username: user.username,
+      profession: user.profession,
       isEmailVerified: user.isEmailVerified,
       isActive: user.isActive,
       isPlatformAdmin: user.isPlatformAdmin || false,
@@ -548,5 +565,48 @@ export class AuthService {
     }
 
     return baseUser;
+  }
+
+  /**
+   * Auto-join user to Public organization if enabled
+   */
+  private async autoJoinPublicOrg(userId: string): Promise<void> {
+    try {
+      const settings = await this.prisma.platformSettings.findUnique({
+        where: { id: 'default' },
+      });
+
+      if (settings?.publicOrgEnabled && settings?.publicOrgId) {
+        // Check if user is already a member
+        const existingMembership = await this.prisma.orgMembership.findUnique({
+          where: {
+            userId_orgId: {
+              userId,
+              orgId: settings.publicOrgId,
+            },
+          },
+        });
+
+        if (!existingMembership) {
+          await this.prisma.orgMembership.create({
+            data: {
+              userId,
+              orgId: settings.publicOrgId,
+              approvedAt: new Date(),
+              isActive: true,
+            },
+          });
+
+          // Increment member count on the organization
+          await this.prisma.organization.update({
+            where: { id: settings.publicOrgId },
+            data: { memberCount: { increment: 1 } },
+          });
+        }
+      }
+    } catch (error) {
+      // Log error but don't fail registration
+      console.error('Failed to auto-join Public organization:', error);
+    }
   }
 }
