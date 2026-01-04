@@ -433,7 +433,8 @@ model Post {
   updatedAt      DateTime  @updatedAt
 
   // Location fields - posts are tied to a location
-  locationLevel  String?   // 'STATE' | 'LGA' | 'WARD' | 'POLLING_UNIT' - user's explicit choice
+  locationLevel  String?   // 'COUNTRY' | 'STATE' | 'LGA' | 'WARD' | 'POLLING_UNIT' - user's explicit choice
+  countryId      String?
   stateId        String?
   lgaId          String?
   wardId         String?
@@ -441,6 +442,7 @@ model Post {
 
   author         User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
   organization   Organization? @relation(fields: [orgId], references: [id])
+  country        Country?      @relation(fields: [countryId], references: [id])
   state          State?        @relation(fields: [stateId], references: [id])
   lga            LGA?          @relation(fields: [lgaId], references: [id])
   ward           Ward?         @relation(fields: [wardId], references: [id])
@@ -453,6 +455,7 @@ model Post {
 
   @@index([authorId])
   @@index([orgId])
+  @@index([countryId])
   @@index([stateId])
   @@index([lgaId])
   @@index([wardId])
@@ -884,6 +887,7 @@ model Country {
   states        State[]
   users         User[]
   organizations Organization[]
+  posts         Post[]
 
   @@map("countries")
 }

@@ -11,6 +11,11 @@ export class FeedFilterInput {
   @Field({ nullable: true })
   @IsOptional()
   @IsString()
+  countryId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
   stateId?: string;
 
   @Field({ nullable: true })

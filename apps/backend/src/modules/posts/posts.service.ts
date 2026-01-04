@@ -47,6 +47,7 @@ export class PostsService {
       };
 
       // Apply location filter directly on posts (posts have their own location)
+      if (filter?.countryId) whereClause.countryId = filter.countryId;
       if (filter?.stateId) whereClause.stateId = filter.stateId;
       if (filter?.lgaId) whereClause.lgaId = filter.lgaId;
       if (filter?.wardId) whereClause.wardId = filter.wardId;
@@ -55,7 +56,7 @@ export class PostsService {
       // If filtering by specific organization, only show posts from that org
       if (filter?.orgId) {
         whereClause.orgId = filter.orgId;
-      } else if (!filter?.stateId && !filter?.lgaId && !filter?.wardId && !filter?.pollingUnitId) {
+      } else if (!filter?.countryId && !filter?.stateId && !filter?.lgaId && !filter?.wardId && !filter?.pollingUnitId) {
         // No location or org filters - show posts from followed users and user's organizations
         whereClause.OR = [
           { authorId: { in: [...followingIds, userId] } },
@@ -318,6 +319,7 @@ export class PostsService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
+        countryId: true,
         stateId: true,
         lgaId: true,
         wardId: true,
@@ -1090,9 +1092,9 @@ export class PostsService {
    * Posts should only appear at their exact selected level, not at higher levels.
    */
   private buildLocationData(
-    user: { stateId: string | null; lgaId: string | null; wardId: string | null; pollingUnitId: string | null } | null,
+    user: { countryId: string | null; stateId: string | null; lgaId: string | null; wardId: string | null; pollingUnitId: string | null } | null,
     locationLevel?: string,
-  ): { stateId?: string; lgaId?: string; wardId?: string; pollingUnitId?: string } {
+  ): { countryId?: string; stateId?: string; lgaId?: string; wardId?: string; pollingUnitId?: string } {
     if (!user) return {};
 
     // If no location level specified, default to polling unit level (most specific)
@@ -1105,6 +1107,8 @@ export class PostsService {
         return { lgaId: user.lgaId };
       } else if (user.stateId) {
         return { stateId: user.stateId };
+      } else if (user.countryId) {
+        return { countryId: user.countryId };
       }
       return {};
     }
@@ -1112,8 +1116,9 @@ export class PostsService {
     // ONLY set the specific location level selected - NO cascade
     switch (locationLevel) {
       case 'COUNTRY':
-        // Country level - no specific location filter (visible to all in country)
-        return {};
+        return {
+          countryId: user.countryId || undefined,
+        };
       case 'STATE':
         return {
           stateId: user.stateId || undefined,
@@ -1140,6 +1145,8 @@ export class PostsService {
           return { lgaId: user.lgaId };
         } else if (user.stateId) {
           return { stateId: user.stateId };
+        } else if (user.countryId) {
+          return { countryId: user.countryId };
         }
         return {};
     }
