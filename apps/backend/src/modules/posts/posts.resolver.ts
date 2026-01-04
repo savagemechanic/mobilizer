@@ -160,6 +160,17 @@ export class PostsResolver {
     return this.postsService.getShareText(postId, true);
   }
 
+  @Query(() => [PostEntity], { description: 'Search posts by content.' })
+  @UseGuards(GqlAuthGuard)
+  async searchPosts(
+    @CurrentUser() user: any,
+    @Args('query') query: string,
+    @Args('limit', { nullable: true, defaultValue: 20 }) limit?: number,
+    @Args('offset', { nullable: true, defaultValue: 0 }) offset?: number,
+  ) {
+    return this.postsService.searchPosts(user.id, query, limit, offset);
+  }
+
   @Query(() => String, { description: 'Get repost text for a post (for internal repost - no marketing text).' })
   @UseGuards(GqlAuthGuard)
   async postRepostText(

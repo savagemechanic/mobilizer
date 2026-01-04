@@ -320,7 +320,9 @@ export class OrganizationsService {
           select: {
             id: true,
             name: true,
+            slug: true,
             level: true,
+            logo: true,
           },
         },
       },

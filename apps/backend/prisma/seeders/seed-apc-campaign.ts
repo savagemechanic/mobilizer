@@ -131,26 +131,26 @@ const NAMES_BY_ZONE: Record<string, { firstNames: string[]; lastNames: string[] 
   },
 };
 
-// Map states to geopolitical zones
+// Map states to geopolitical zones (uppercase to match database)
 const STATE_TO_ZONE: Record<string, string> = {
   // South-West
-  'Lagos': 'SOUTH_WEST', 'Oyo': 'SOUTH_WEST', 'Ogun': 'SOUTH_WEST', 'Ondo': 'SOUTH_WEST',
-  'Ekiti': 'SOUTH_WEST', 'Osun': 'SOUTH_WEST',
+  'LAGOS': 'SOUTH_WEST', 'OYO': 'SOUTH_WEST', 'OGUN': 'SOUTH_WEST', 'ONDO': 'SOUTH_WEST',
+  'EKITI': 'SOUTH_WEST', 'OSUN': 'SOUTH_WEST',
   // North-West
-  'Kano': 'NORTH_WEST', 'Kaduna': 'NORTH_WEST', 'Katsina': 'NORTH_WEST', 'Sokoto': 'NORTH_WEST',
-  'Zamfara': 'NORTH_WEST', 'Kebbi': 'NORTH_WEST', 'Jigawa': 'NORTH_WEST',
+  'KANO': 'NORTH_WEST', 'KADUNA': 'NORTH_WEST', 'KATSINA': 'NORTH_WEST', 'SOKOTO': 'NORTH_WEST',
+  'ZAMFARA': 'NORTH_WEST', 'KEBBI': 'NORTH_WEST', 'JIGAWA': 'NORTH_WEST',
   // North-East
-  'Borno': 'NORTH_EAST', 'Yobe': 'NORTH_EAST', 'Adamawa': 'NORTH_EAST', 'Bauchi': 'NORTH_EAST',
-  'Gombe': 'NORTH_EAST', 'Taraba': 'NORTH_EAST',
+  'BORNO': 'NORTH_EAST', 'YOBE': 'NORTH_EAST', 'ADAMAWA': 'NORTH_EAST', 'BAUCHI': 'NORTH_EAST',
+  'GOMBE': 'NORTH_EAST', 'TARABA': 'NORTH_EAST',
   // North-Central
-  'Plateau': 'NORTH_CENTRAL', 'Benue': 'NORTH_CENTRAL', 'Nasarawa': 'NORTH_CENTRAL',
-  'Kogi': 'NORTH_CENTRAL', 'Niger': 'NORTH_CENTRAL', 'Kwara': 'NORTH_CENTRAL',
-  'Abuja': 'NORTH_CENTRAL', 'FCT': 'NORTH_CENTRAL', 'Federal Capital Territory': 'NORTH_CENTRAL',
+  'PLATEAU': 'NORTH_CENTRAL', 'BENUE': 'NORTH_CENTRAL', 'NASARAWA': 'NORTH_CENTRAL',
+  'KOGI': 'NORTH_CENTRAL', 'NIGER': 'NORTH_CENTRAL', 'KWARA': 'NORTH_CENTRAL',
+  'FCT': 'NORTH_CENTRAL',
   // South-East
-  'Enugu': 'SOUTH_EAST', 'Anambra': 'SOUTH_EAST', 'Imo': 'SOUTH_EAST', 'Abia': 'SOUTH_EAST', 'Ebonyi': 'SOUTH_EAST',
+  'ENUGU': 'SOUTH_EAST', 'ANAMBRA': 'SOUTH_EAST', 'IMO': 'SOUTH_EAST', 'ABIA': 'SOUTH_EAST', 'EBONYI': 'SOUTH_EAST',
   // South-South
-  'Rivers': 'SOUTH_SOUTH', 'Delta': 'SOUTH_SOUTH', 'Bayelsa': 'SOUTH_SOUTH',
-  'Cross River': 'SOUTH_SOUTH', 'Akwa Ibom': 'SOUTH_SOUTH', 'Edo': 'SOUTH_SOUTH',
+  'RIVERS': 'SOUTH_SOUTH', 'DELTA': 'SOUTH_SOUTH', 'BAYELSA': 'SOUTH_SOUTH',
+  'CROSS RIVER': 'SOUTH_SOUTH', 'AKWA IBOM': 'SOUTH_SOUTH', 'EDO': 'SOUTH_SOUTH',
 };
 
 // ============================================
@@ -342,9 +342,11 @@ function getRandomItems<T>(array: T[], count: number): T[] {
 }
 
 function getZone(stateName: string): string {
-  if (STATE_TO_ZONE[stateName]) return STATE_TO_ZONE[stateName];
+  const upperName = stateName.toUpperCase();
+  if (STATE_TO_ZONE[upperName]) return STATE_TO_ZONE[upperName];
+  // Try partial match for edge cases
   for (const [key, value] of Object.entries(STATE_TO_ZONE)) {
-    if (stateName.toLowerCase().includes(key.toLowerCase())) return value;
+    if (upperName.includes(key)) return value;
   }
   return 'SOUTH_WEST'; // Default
 }

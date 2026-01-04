@@ -183,6 +183,83 @@ export class PostsService {
     }
   }
 
+  async searchPosts(userId: string, query: string, limit: number = 20, offset: number = 0) {
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+
+    const posts = await this.prisma.post.findMany({
+      where: {
+        isPublished: true,
+        content: { contains: query, mode: 'insensitive' },
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            displayName: true,
+            avatar: true,
+            email: true,
+          },
+        },
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+          },
+        },
+        poll: {
+          include: {
+            options: true,
+            votes: {
+              where: { userId },
+              select: { optionId: true },
+            },
+          },
+        },
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
+          },
+        },
+        likes: {
+          where: { userId },
+          select: { id: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: offset,
+    });
+
+    // Transform to add isLiked to posts
+    return posts.map((post) => {
+      const result: any = { ...post };
+
+      // Add isLiked field
+      result.isLiked = (post as any).likes?.length > 0;
+      delete result.likes;
+
+      if (post.poll) {
+        const userVotes = (post.poll as any).votes || [];
+        const hasVoted = userVotes.length > 0;
+        const userVotedOptionId = hasVoted ? userVotes[0].optionId : null;
+
+        result.poll = {
+          ...post.poll,
+          hasVoted,
+          userVotedOptionId,
+          votes: undefined,
+        };
+      }
+      return result;
+    });
+  }
+
   async getPolls(userId: string, limit: number = 20, offset: number = 0, organizationId?: string) {
     // Get user's organizations
     const memberships = await this.prisma.orgMembership.findMany({
