@@ -1070,17 +1070,18 @@ export class PostsService {
             inviteCode: true,
           },
         },
+        // Include direct location relations
         state: {
           select: { name: true },
         },
         lga: {
-          select: { name: true },
+          select: { name: true, state: { select: { name: true } } },
         },
         ward: {
-          select: { name: true },
+          select: { name: true, lga: { select: { name: true, state: { select: { name: true } } } } },
         },
         pollingUnit: {
-          select: { name: true },
+          select: { name: true, ward: { select: { name: true, lga: { select: { name: true, state: { select: { name: true } } } } } } },
         },
       },
     });
@@ -1099,13 +1100,37 @@ export class PostsService {
       contentPreview = contentPreview.substring(0, 200).trim() + '...';
     }
 
-    // Build location string
-    // Format: STATE > LGA > Ward ward > PollingUnit polling unit
+    // Build location string from the most specific location available
+    // Each location level includes its parent hierarchy
+    let stateName: string | undefined;
+    let lgaName: string | undefined;
+    let wardName: string | undefined;
+    let pollingUnitName: string | undefined;
+
+    if ((post as any).pollingUnit) {
+      const pu = (post as any).pollingUnit;
+      pollingUnitName = pu.name;
+      wardName = pu.ward?.name;
+      lgaName = pu.ward?.lga?.name;
+      stateName = pu.ward?.lga?.state?.name;
+    } else if ((post as any).ward) {
+      const w = (post as any).ward;
+      wardName = w.name;
+      lgaName = w.lga?.name;
+      stateName = w.lga?.state?.name;
+    } else if ((post as any).lga) {
+      const l = (post as any).lga;
+      lgaName = l.name;
+      stateName = l.state?.name;
+    } else if ((post as any).state) {
+      stateName = (post as any).state.name;
+    }
+
     const locationString = this.buildLocationString(
-      (post as any).state?.name,
-      (post as any).lga?.name,
-      (post as any).ward?.name,
-      (post as any).pollingUnit?.name,
+      stateName,
+      lgaName,
+      wardName,
+      pollingUnitName,
     );
 
     // Build invite code line

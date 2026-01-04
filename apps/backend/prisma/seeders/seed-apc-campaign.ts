@@ -21,6 +21,31 @@ const prisma = new PrismaClient({
 
 const BATCH_SIZE = 100;
 
+// Helper to execute with retry on connection errors
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries = 3,
+  delay = 2000
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      const isConnectionError = error?.code === 'P1017' || error?.code === 'P1001' || error?.code === 'P1002';
+      if (isConnectionError && attempt < maxRetries) {
+        console.log(`   ⚠️  Connection error, retrying (${attempt}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, delay * attempt));
+        // Reconnect
+        await prisma.$disconnect();
+        await prisma.$connect();
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
 // ============================================
 // NIGERIAN NAMES BY GEOPOLITICAL ZONE
 // ============================================
@@ -1009,6 +1034,10 @@ async function main() {
       const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
       console.log(`\n   📊 Progress: ${totalPosts.toLocaleString()} posts, ${totalUsers.toLocaleString()} users (${elapsed} mins)\n`);
     }
+
+    // Reconnect periodically to prevent connection timeouts
+    await prisma.$disconnect();
+    await prisma.$connect();
   }
 
   // Update member counts for all organizations
