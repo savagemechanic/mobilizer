@@ -15,7 +15,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { useEventsStore, Event } from '@/store/events';
 import { EventCard } from '@/components/events/EventCard';
 import { SearchInput } from '@/components/ui';
-import { GET_EVENTS, GET_MY_EVENTS } from '@/lib/graphql/queries/events';
+import { GET_EVENTS_FOR_ME, GET_MY_EVENTS } from '@/lib/graphql/queries/events';
 import { RSVP_EVENT } from '@/lib/graphql/mutations/events';
 
 export default function EventsScreen() {
@@ -42,14 +42,14 @@ export default function EventsScreen() {
     optimisticCancelRSVP,
   } = useEventsStore();
 
-  // Query for all events (invitations/upcoming)
-  const { loading, error, refetch, fetchMore } = useQuery(GET_EVENTS, {
+  // Query for events matching user's org/location (invitations)
+  const { loading, error, refetch, fetchMore } = useQuery(GET_EVENTS_FOR_ME, {
     variables: { limit, offset: 0 },
     skip: activeTab !== 'invitations',
     notifyOnNetworkStatusChange: true,
     onCompleted: (data) => {
-      if (data?.events) {
-        addEvents(data.events, true);
+      if (data?.eventsForMe) {
+        addEvents(data.eventsForMe, true);
       }
       setLoading(false);
       setRefreshing(false);
@@ -127,8 +127,8 @@ export default function EventsScreen() {
         },
       });
 
-      if (data?.events) {
-        addEvents(data.events, false);
+      if (data?.eventsForMe) {
+        addEvents(data.eventsForMe, false);
       }
     } catch (error) {
       console.error('Error loading more events:', error);

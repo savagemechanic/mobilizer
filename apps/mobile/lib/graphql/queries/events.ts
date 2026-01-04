@@ -60,6 +60,19 @@ export const GET_MY_EVENTS = gql`
 `;
 
 /**
+ * Query to fetch events for the current user's invitations
+ * Based on their org memberships and location level
+ */
+export const GET_EVENTS_FOR_ME = gql`
+  ${EVENT_FRAGMENT}
+  query GetEventsForMe($limit: Float, $offset: Float) {
+    eventsForMe(limit: $limit, offset: $offset) {
+      ...EventFields
+    }
+  }
+`;
+
+/**
  * Fragment for event RSVP
  */
 export const EVENT_RSVP_FRAGMENT = gql`

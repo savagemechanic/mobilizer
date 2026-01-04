@@ -277,6 +277,95 @@ export class EventsService {
     });
   }
 
+  /**
+   * Get events for a user's invitations/discovery
+   * Returns events that match:
+   * 1. User is a member of the event's organization
+   * 2. Event's location level exactly matches the user's location
+   */
+  async getEventsForUser(userId: string, limit: number = 20, offset: number = 0) {
+    // Get user with their org memberships
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        stateId: true,
+        lgaId: true,
+        wardId: true,
+        pollingUnitId: true,
+        memberships: {
+          where: {
+            approvedAt: { not: null },
+            isActive: true,
+          },
+          select: { orgId: true },
+        },
+      },
+    });
+
+    if (!user) {
+      return [];
+    }
+
+    // Build location filter - exact match only
+    const locationFilters: any[] = [];
+
+    if (user.stateId) {
+      locationFilters.push({ locationLevel: 'STATE', stateId: user.stateId });
+    }
+    if (user.lgaId) {
+      locationFilters.push({ locationLevel: 'LGA', lgaId: user.lgaId });
+    }
+    if (user.wardId) {
+      locationFilters.push({ locationLevel: 'WARD', wardId: user.wardId });
+    }
+    if (user.pollingUnitId) {
+      locationFilters.push({ locationLevel: 'POLLING_UNIT', pollingUnitId: user.pollingUnitId });
+    }
+
+    // Get user's org IDs
+    const userOrgIds = user.memberships.map((m) => m.orgId);
+
+    // Build the where clause
+    const where: any = {
+      isPublished: true,
+      startTime: { gte: new Date() },
+      AND: [
+        userOrgIds.length > 0 ? { orgId: { in: userOrgIds } } : { orgId: null },
+        locationFilters.length > 0 ? { OR: locationFilters } : {},
+      ],
+    };
+
+    return this.prisma.event.findMany({
+      where,
+      include: {
+        creator: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            displayName: true,
+            avatar: true,
+          },
+        },
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+          },
+        },
+        _count: {
+          select: {
+            rsvps: true,
+          },
+        },
+      },
+      orderBy: { startTime: 'asc' },
+      take: limit,
+      skip: offset,
+    });
+  }
+
   async inviteToEvent(inviterId: string, eventId: string, userIds: string[]) {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },

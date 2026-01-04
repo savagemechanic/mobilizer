@@ -44,6 +44,16 @@ export class EventsResolver {
     return this.eventsService.getUserEvents(user.id, upcoming);
   }
 
+  @Query(() => [EventEntity])
+  @UseGuards(GqlAuthGuard)
+  async eventsForMe(
+    @CurrentUser() user: any,
+    @Args('limit', { nullable: true, defaultValue: 20 }) limit?: number,
+    @Args('offset', { nullable: true, defaultValue: 0 }) offset?: number,
+  ) {
+    return this.eventsService.getEventsForUser(user.id, limit, offset);
+  }
+
   @Mutation(() => EventEntity)
   @UseGuards(GqlAuthGuard)
   async createEvent(
