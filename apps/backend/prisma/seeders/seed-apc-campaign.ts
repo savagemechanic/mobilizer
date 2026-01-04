@@ -3,8 +3,9 @@
  *
  * Creates realistic APC (All Progressives Congress) campaign data:
  * - Users with Nigerian names matching their geopolitical zones
- * - APC movement and organization hierarchy at all levels
- * - Political posts appropriate for each location level
+ * - ONE APC organization (All Progressives Congress) with invite code "APC"
+ * - All users are members of this single organization
+ * - Political posts tagged with location levels for feed filtering
  *
  * Usage:
  *   yarn prisma:seed:apc
@@ -18,8 +19,6 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient({
   log: ['warn', 'error'],
 });
-
-const BATCH_SIZE = 100;
 
 // Helper to execute with retry on connection errors
 async function withRetry<T>(
@@ -35,7 +34,6 @@ async function withRetry<T>(
       if (isConnectionError && attempt < maxRetries) {
         console.log(`   ⚠️  Connection error, retrying (${attempt}/${maxRetries})...`);
         await new Promise(resolve => setTimeout(resolve, delay * attempt));
-        // Reconnect
         await prisma.$disconnect();
         await prisma.$connect();
       } else {
@@ -184,7 +182,7 @@ const STATE_TO_ZONE: Record<string, string> = {
 
 // National level posts (elevated, philosophical, broad)
 const NATIONAL_POSTS = [
-  "Fellow Nigerians, our Renewed Hope agenda is bearing fruit! Under President Tinubu's leadership, we are witnessing transformative policies that will secure our nation's future. APC is the party for progress! 🇳🇬",
+  "Fellow Nigerians, our Renewed Hope agenda is bearing fruit! Under President Tinubu's leadership, we are witnessing transformative policies that will secure our nation's future. APC is the party for progress!",
   "The APC administration has removed fuel subsidy - a bold move that will save trillions for critical infrastructure. Short-term pain for long-term gain. Our grandchildren will thank us!",
   "To all our support groups across the 36 states and FCT: Your dedication to the cause of nation-building is noticed and appreciated. Together, we move Nigeria forward!",
   "Important announcement from National Working Committee: All State chapters should intensify grassroots mobilization. 2027 is closer than we think. Let's consolidate our gains!",
@@ -415,28 +413,6 @@ function getPostsForLevel(level: 'NATIONAL' | 'STATE' | 'LGA' | 'WARD' | 'POLLIN
   }
 }
 
-async function generateUniqueInviteCode(usedCodes: Set<string>): Promise<string> {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const maxAttempts = 100;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const code = Array.from({ length: 3 }, () =>
-      chars.charAt(Math.floor(Math.random() * chars.length))
-    ).join('');
-
-    if (!usedCodes.has(code)) {
-      const existing = await prisma.organization.findUnique({
-        where: { inviteCode: code },
-      });
-      if (!existing) {
-        usedCodes.add(code);
-        return code;
-      }
-    }
-  }
-  throw new Error('Failed to generate unique invite code');
-}
-
 // ============================================
 // MAIN SEEDER
 // ============================================
@@ -444,22 +420,22 @@ async function generateUniqueInviteCode(usedCodes: Set<string>): Promise<string>
 async function main() {
   console.log('========================================');
   console.log('APC CAMPAIGN SEEDER');
+  console.log('(Single Organization Mode)');
   console.log('========================================\n');
 
   const startTime = Date.now();
   const hashedPassword = await bcrypt.hash('apc2027', 10);
   const genders = [Gender.MALE, Gender.FEMALE];
-  const usedInviteCodes = new Set<string>();
 
   // Connect
-  console.log('🔌 Connecting to database...');
+  console.log('Connecting to database...');
   await prisma.$connect();
-  console.log('✓ Connected!\n');
+  console.log('Connected!\n');
 
   // ============================================
-  // STEP 1: CLEAR EXISTING POSTS
+  // STEP 1: CLEAR EXISTING DATA
   // ============================================
-  console.log('🧹 Clearing existing posts and related data...');
+  console.log('Clearing existing posts and related data...');
 
   // Delete in correct order due to foreign keys
   await prisma.pollVote.deleteMany({});
@@ -471,16 +447,48 @@ async function main() {
   await prisma.share.deleteMany({});
   await prisma.post.deleteMany({});
 
-  console.log('✓ All posts cleared!\n');
+  console.log('All posts cleared!\n');
+
+  // Also delete any existing APC organizations and their memberships
+  console.log('Clearing existing APC organizations...');
+  const existingApcOrgs = await prisma.organization.findMany({
+    where: {
+      OR: [
+        { slug: { startsWith: 'apc-' } },
+        { inviteCode: 'APC' },
+      ],
+    },
+    select: { id: true },
+  });
+
+  if (existingApcOrgs.length > 0) {
+    const orgIds = existingApcOrgs.map(o => o.id);
+    await prisma.orgMembership.deleteMany({
+      where: { orgId: { in: orgIds } },
+    });
+    await prisma.organization.deleteMany({
+      where: { id: { in: orgIds } },
+    });
+    console.log(`Deleted ${existingApcOrgs.length} existing APC organizations`);
+  }
+
+  // Delete users created by previous seed runs
+  console.log('Clearing seeded APC users...');
+  await prisma.user.deleteMany({
+    where: {
+      email: { contains: '.apc' },
+    },
+  });
+  console.log('Seeded users cleared!\n');
 
   // ============================================
   // STEP 2: GET NIGERIA AND LOCATIONS
   // ============================================
-  console.log('📍 Loading location hierarchy...');
+  console.log('Loading location hierarchy...');
 
   const nigeria = await prisma.country.findFirst({ where: { code: 'NG' } });
   if (!nigeria) {
-    console.error('❌ Nigeria not found! Run the main seed first with --full-locations.');
+    console.error('Nigeria not found! Run the main seed first with --full-locations.');
     return;
   }
 
@@ -499,17 +507,17 @@ async function main() {
     },
   });
 
-  console.log(`✓ Found ${states.length} states\n`);
+  console.log(`Found ${states.length} states\n`);
 
   if (states.length === 0) {
-    console.error('❌ No states found! Run: yarn prisma:seed --full-locations');
+    console.error('No states found! Run: yarn prisma:seed --full-locations');
     return;
   }
 
   // ============================================
   // STEP 3: GET OR CREATE PLATFORM ADMIN
   // ============================================
-  console.log('👤 Setting up Platform Admin...');
+  console.log('Setting up Platform Admin...');
 
   let platformAdmin = await prisma.user.findFirst({
     where: { isPlatformAdmin: true },
@@ -529,15 +537,15 @@ async function main() {
         gender: Gender.MALE,
       },
     });
-    console.log('✓ Created Platform Admin');
+    console.log('Created Platform Admin');
   } else {
-    console.log('✓ Using existing Platform Admin');
+    console.log('Using existing Platform Admin');
   }
 
   // ============================================
   // STEP 4: CREATE APC MOVEMENT
   // ============================================
-  console.log('\n🏛️ Creating APC Movement...');
+  console.log('\nCreating APC Movement...');
 
   let apcMovement = await prisma.movement.findFirst({
     where: { slug: 'apc-national' },
@@ -565,51 +573,44 @@ async function main() {
     });
   }
 
-  console.log('✓ APC Movement ready:', apcMovement.name);
+  console.log('APC Movement ready:', apcMovement.name);
 
   // ============================================
-  // STEP 5: CREATE NATIONAL APC ORGANIZATION
+  // STEP 5: CREATE SINGLE APC ORGANIZATION
   // ============================================
-  console.log('\n🏢 Creating APC National Organization...');
+  console.log('\nCreating APC Organization (SINGLE ORG)...');
 
-  let apcNational = await prisma.organization.findFirst({
-    where: { slug: 'apc-national-hq' },
+  const apcOrg = await prisma.organization.create({
+    data: {
+      name: 'All Progressives Congress',
+      slug: 'apc-national-hq',
+      description: 'All Progressives Congress - The ruling party of the Federal Republic of Nigeria. Join with invite code: APC',
+      level: OrgLevel.NATIONAL,
+      movementId: apcMovement.id,
+      isVerified: true,
+      isActive: true,
+      countryId: nigeria.id,
+      inviteCode: 'APC',
+      memberCount: 0,
+    },
   });
 
-  if (!apcNational) {
-    apcNational = await prisma.organization.create({
-      data: {
-        name: 'APC National Headquarters',
-        slug: 'apc-national-hq',
-        description: 'All Progressives Congress - National Headquarters. The ruling party of the Federal Republic of Nigeria.',
-        level: OrgLevel.NATIONAL,
-        movementId: apcMovement.id,
-        isVerified: true,
-        isActive: true,
-        countryId: nigeria.id,
-        inviteCode: 'APC',
-        memberCount: 0,
-      },
-    });
-    usedInviteCodes.add('APC');
-  }
-
-  console.log('✓ APC National HQ ready:', apcNational.name);
+  console.log('APC Organization created:', apcOrg.name);
+  console.log('Invite Code:', apcOrg.inviteCode);
 
   // ============================================
   // STEP 6: CREATE USERS AND POSTS
   // ============================================
-  console.log('\n👥 Creating users and posts by location level...\n');
+  console.log('\nCreating users and posts by location level...\n');
 
   let totalUsers = 0;
   let totalPosts = 0;
   let totalMemberships = 0;
-  const createdOrgs: Record<string, any> = { national: apcNational };
+  const createdUserIds: string[] = [];
 
-  // Create national level posts first
-  console.log('📝 Creating national level posts...');
+  // Create national level users and posts first
+  console.log('Creating national level users and posts...');
 
-  // Create some national-level users
   for (let i = 0; i < 5; i++) {
     const zone = getRandomItem(Object.keys(NAMES_BY_ZONE));
     const name = generateName(zone);
@@ -628,12 +629,13 @@ async function main() {
         gender: getRandomItem(genders),
       },
     });
+    createdUserIds.push(user.id);
 
-    // Add to national org
+    // Add to APC org
     await prisma.orgMembership.create({
       data: {
         userId: user.id,
-        orgId: apcNational.id,
+        orgId: apcOrg.id,
         isAdmin: i < 2, // First 2 are admins
         approvedAt: new Date(),
       },
@@ -649,7 +651,8 @@ async function main() {
         data: {
           content,
           authorId: user.id,
-          orgId: apcNational.id,
+          orgId: apcOrg.id,
+          locationLevel: 'NATIONAL',
           type: 'TEXT',
           isPublished: true,
           likeCount: Math.floor(Math.random() * 500),
@@ -661,39 +664,15 @@ async function main() {
     }
     totalUsers++;
   }
-  console.log(`   ✓ National: ${totalUsers} users, ${totalPosts} posts`);
+  console.log(`   National: ${totalUsers} users, ${totalPosts} posts`);
 
   // Process each state
   for (const state of states) {
     const zone = getZone(state.name);
-    console.log(`\n🏛️ Processing ${state.name} (${zone})`);
+    console.log(`\nProcessing ${state.name} (${zone})`);
 
     let stateUsers = 0;
     let statePosts = 0;
-
-    // Create state organization
-    const stateSlug = `apc-${state.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-    let stateOrg = await prisma.organization.findFirst({ where: { slug: stateSlug } });
-
-    if (!stateOrg) {
-      stateOrg = await prisma.organization.create({
-        data: {
-          name: `APC ${state.name} State`,
-          slug: stateSlug,
-          description: `All Progressives Congress - ${state.name} State Chapter`,
-          level: OrgLevel.STATE,
-          movementId: apcMovement.id,
-          parentId: apcNational.id,
-          isVerified: true,
-          isActive: true,
-          countryId: nigeria.id,
-          stateId: state.id,
-          inviteCode: await generateUniqueInviteCode(usedInviteCodes),
-          memberCount: 0,
-        },
-      });
-    }
-    createdOrgs[state.id] = stateOrg;
 
     // Create state level users (3-5)
     const numStateUsers = 3 + Math.floor(Math.random() * 3);
@@ -715,19 +694,20 @@ async function main() {
           gender: getRandomItem(genders),
         },
       });
+      createdUserIds.push(user.id);
 
-      // Add to state org
+      // Add to APC org
       await prisma.orgMembership.create({
         data: {
           userId: user.id,
-          orgId: stateOrg.id,
-          isAdmin: i === 0,
+          orgId: apcOrg.id,
+          isAdmin: false,
           approvedAt: new Date(),
         },
       });
       totalMemberships++;
 
-      // Create state posts
+      // Create state posts (tagged with stateId and locationLevel)
       const numPosts = 2 + Math.floor(Math.random() * 2);
       const statePostContent = getRandomItems(STATE_POSTS, numPosts);
 
@@ -736,7 +716,7 @@ async function main() {
           data: {
             content,
             authorId: user.id,
-            orgId: stateOrg.id,
+            orgId: apcOrg.id,
             stateId: state.id,
             locationLevel: 'STATE',
             type: 'TEXT',
@@ -757,30 +737,6 @@ async function main() {
     const lgasToProcess = state.lgas.slice(0, 5);
 
     for (const lga of lgasToProcess) {
-      // Create LGA organization
-      const lgaSlug = `apc-${state.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${lga.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-      let lgaOrg = await prisma.organization.findFirst({ where: { slug: lgaSlug } });
-
-      if (!lgaOrg) {
-        lgaOrg = await prisma.organization.create({
-          data: {
-            name: `APC ${lga.name} LGA`,
-            slug: lgaSlug,
-            description: `All Progressives Congress - ${lga.name} Local Government Area, ${state.name} State`,
-            level: OrgLevel.LGA,
-            movementId: apcMovement.id,
-            parentId: stateOrg.id,
-            isVerified: true,
-            isActive: true,
-            countryId: nigeria.id,
-            stateId: state.id,
-            lgaId: lga.id,
-            inviteCode: await generateUniqueInviteCode(usedInviteCodes),
-            memberCount: 0,
-          },
-        });
-      }
-
       // Create LGA users (2-3)
       const numLgaUsers = 2 + Math.floor(Math.random() * 2);
       for (let i = 0; i < numLgaUsers; i++) {
@@ -802,12 +758,13 @@ async function main() {
             gender: getRandomItem(genders),
           },
         });
+        createdUserIds.push(user.id);
 
         await prisma.orgMembership.create({
           data: {
             userId: user.id,
-            orgId: lgaOrg.id,
-            isAdmin: i === 0,
+            orgId: apcOrg.id,
+            isAdmin: false,
             approvedAt: new Date(),
           },
         });
@@ -822,7 +779,7 @@ async function main() {
             data: {
               content,
               authorId: user.id,
-              orgId: lgaOrg.id,
+              orgId: apcOrg.id,
               stateId: state.id,
               lgaId: lga.id,
               locationLevel: 'LGA',
@@ -844,31 +801,6 @@ async function main() {
       const wardsToProcess = lga.wards.slice(0, 3);
 
       for (const ward of wardsToProcess) {
-        // Create Ward organization
-        const wardSlug = `apc-${lga.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${ward.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-        let wardOrg = await prisma.organization.findFirst({ where: { slug: wardSlug } });
-
-        if (!wardOrg) {
-          wardOrg = await prisma.organization.create({
-            data: {
-              name: `APC ${ward.name}`,
-              slug: wardSlug,
-              description: `All Progressives Congress - ${ward.name}, ${lga.name} LGA`,
-              level: OrgLevel.WARD,
-              movementId: apcMovement.id,
-              parentId: lgaOrg.id,
-              isVerified: true,
-              isActive: true,
-              countryId: nigeria.id,
-              stateId: state.id,
-              lgaId: lga.id,
-              wardId: ward.id,
-              inviteCode: await generateUniqueInviteCode(usedInviteCodes),
-              memberCount: 0,
-            },
-          });
-        }
-
         // Create Ward users (2-4)
         const numWardUsers = 2 + Math.floor(Math.random() * 3);
         for (let i = 0; i < numWardUsers; i++) {
@@ -891,12 +823,13 @@ async function main() {
               gender: getRandomItem(genders),
             },
           });
+          createdUserIds.push(user.id);
 
           await prisma.orgMembership.create({
             data: {
               userId: user.id,
-              orgId: wardOrg.id,
-              isAdmin: i === 0,
+              orgId: apcOrg.id,
+              isAdmin: false,
               approvedAt: new Date(),
             },
           });
@@ -911,7 +844,7 @@ async function main() {
               data: {
                 content,
                 authorId: user.id,
-                orgId: wardOrg.id,
+                orgId: apcOrg.id,
                 stateId: state.id,
                 lgaId: lga.id,
                 wardId: ward.id,
@@ -934,32 +867,6 @@ async function main() {
         const pusToProcess = ward.pollingUnits.slice(0, 3);
 
         for (const pu of pusToProcess) {
-          // Create PU organization
-          const puSlug = `apc-${ward.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${pu.code.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-          let puOrg = await prisma.organization.findFirst({ where: { slug: puSlug } });
-
-          if (!puOrg) {
-            puOrg = await prisma.organization.create({
-              data: {
-                name: `APC ${pu.name}`,
-                slug: puSlug,
-                description: `All Progressives Congress - ${pu.name}, ${ward.name}`,
-                level: OrgLevel.POLLING_UNIT,
-                movementId: apcMovement.id,
-                parentId: wardOrg.id,
-                isVerified: true,
-                isActive: true,
-                countryId: nigeria.id,
-                stateId: state.id,
-                lgaId: lga.id,
-                wardId: ward.id,
-                pollingUnitId: pu.id,
-                inviteCode: await generateUniqueInviteCode(usedInviteCodes),
-                memberCount: 0,
-              },
-            });
-          }
-
           // Create PU users (3-6 for more intimate feel)
           const numPuUsers = 3 + Math.floor(Math.random() * 4);
           for (let i = 0; i < numPuUsers; i++) {
@@ -983,12 +890,13 @@ async function main() {
                 gender: getRandomItem(genders),
               },
             });
+            createdUserIds.push(user.id);
 
             await prisma.orgMembership.create({
               data: {
                 userId: user.id,
-                orgId: puOrg.id,
-                isAdmin: i === 0,
+                orgId: apcOrg.id,
+                isAdmin: false,
                 approvedAt: new Date(),
               },
             });
@@ -1004,7 +912,7 @@ async function main() {
                 data: {
                   content,
                   authorId: user.id,
-                  orgId: puOrg.id,
+                  orgId: apcOrg.id,
                   stateId: state.id,
                   lgaId: lga.id,
                   wardId: ward.id,
@@ -1027,12 +935,12 @@ async function main() {
       }
     }
 
-    console.log(`   ✓ ${state.name}: ${stateUsers} users, ${statePosts} posts`);
+    console.log(`   ${state.name}: ${stateUsers} users, ${statePosts} posts`);
 
     // Progress update
     if (totalPosts % 500 === 0) {
       const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
-      console.log(`\n   📊 Progress: ${totalPosts.toLocaleString()} posts, ${totalUsers.toLocaleString()} users (${elapsed} mins)\n`);
+      console.log(`\n   Progress: ${totalPosts.toLocaleString()} posts, ${totalUsers.toLocaleString()} users (${elapsed} mins)\n`);
     }
 
     // Reconnect periodically to prevent connection timeouts
@@ -1040,43 +948,33 @@ async function main() {
     await prisma.$connect();
   }
 
-  // Update member counts for all organizations
-  console.log('\n📊 Updating organization member counts...');
-  const orgs = await prisma.organization.findMany({
-    where: { movementId: apcMovement.id },
-    select: { id: true },
+  // Update member count for the single APC organization
+  console.log('\nUpdating organization member count...');
+  await prisma.organization.update({
+    where: { id: apcOrg.id },
+    data: { memberCount: totalMemberships },
   });
-
-  for (const org of orgs) {
-    const count = await prisma.orgMembership.count({
-      where: { orgId: org.id, isActive: true },
-    });
-    await prisma.organization.update({
-      where: { id: org.id },
-      data: { memberCount: count },
-    });
-  }
 
   const totalTime = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
 
   console.log('\n========================================');
-  console.log('✅ APC CAMPAIGN SEEDING COMPLETE!');
+  console.log('APC CAMPAIGN SEEDING COMPLETE!');
   console.log('========================================');
-  console.log(`\n📊 Summary:`);
+  console.log(`\nSummary:`);
   console.log(`   - Users created: ${totalUsers.toLocaleString()}`);
   console.log(`   - Posts created: ${totalPosts.toLocaleString()}`);
   console.log(`   - Memberships: ${totalMemberships.toLocaleString()}`);
-  console.log(`   - Organizations: ${orgs.length.toLocaleString()}`);
+  console.log(`   - Organization: 1 (All Progressives Congress)`);
   console.log(`   - Time taken: ${totalTime} minutes`);
-  console.log(`\n🔑 Password for all APC users: apc2027`);
-  console.log(`🏛️ Movement: All Progressives Congress`);
-  console.log(`📍 Organization code: APC`);
+  console.log(`\nPassword for all APC users: apc2027`);
+  console.log(`Movement: All Progressives Congress`);
+  console.log(`Organization invite code: APC`);
   console.log('========================================\n');
 }
 
 main()
   .catch((e) => {
-    console.error('\n❌ Error during seeding:', e);
+    console.error('\nError during seeding:', e);
     process.exit(1);
   })
   .finally(async () => {
