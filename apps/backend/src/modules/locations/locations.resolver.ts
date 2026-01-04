@@ -1,6 +1,13 @@
 import { Resolver, Query, Args } from '@nestjs/graphql';
 import { LocationsService } from './locations.service';
-import { Country, State, LGA, Ward, PollingUnit } from './entities/location.entity';
+import {
+  Country,
+  State,
+  LGA,
+  Ward,
+  PollingUnit,
+  LocationLookupResult,
+} from './entities/location.entity';
 
 @Resolver()
 export class LocationsResolver {
@@ -82,5 +89,16 @@ export class LocationsResolver {
   @Query(() => PollingUnit, { name: 'pollingUnit', nullable: true })
   async pollingUnit(@Args('id', { type: () => String }) id: string) {
     return this.locationsService.getPollingUnit(id);
+  }
+
+  // ============================================
+  // LOCATION CODE LOOKUP (Public - needed for registration)
+  // ============================================
+
+  @Query(() => LocationLookupResult, { name: 'lookupLocationByCode' })
+  async lookupLocationByCode(
+    @Args('code', { type: () => String }) code: string,
+  ) {
+    return this.locationsService.lookupByCode(code);
   }
 }

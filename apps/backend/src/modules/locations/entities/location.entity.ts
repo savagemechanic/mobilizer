@@ -98,3 +98,24 @@ export class PollingUnit {
   @Field(() => Ward, { nullable: true })
   ward?: Ward;
 }
+
+@ObjectType()
+export class LocationLookupResult {
+  @Field()
+  valid: boolean;
+
+  @Field({ nullable: true })
+  error?: string;
+
+  @Field(() => State, { nullable: true })
+  state?: State;
+
+  @Field(() => LGA, { nullable: true })
+  lga?: LGA;
+
+  @Field(() => Ward, { nullable: true })
+  ward?: Ward;
+
+  @Field(() => PollingUnit, { nullable: true })
+  pollingUnit?: PollingUnit;
+}
