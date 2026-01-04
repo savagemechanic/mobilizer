@@ -351,6 +351,135 @@ export default function LocationPicker({
               </View>
             </View>
           </View>
+
+          {/* Show populated dropdowns after successful lookup */}
+          {isCodeLookupSuccess && (
+            <View style={styles.foundLocationSection}>
+              <Text style={styles.foundLocationTitle}>Selected Location</Text>
+
+              {/* State Picker */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>State</Text>
+                <View style={[styles.pickerContainer, statesError && styles.pickerError]}>
+                  {statesLoading ? (
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator size="small" color="#007AFF" />
+                    </View>
+                  ) : (
+                    <Picker
+                      selectedValue={stateId}
+                      onValueChange={handleStateChange}
+                      style={styles.picker}
+                      itemStyle={styles.pickerItemStyle}
+                      enabled={!disabled}
+                    >
+                      <Picker.Item label="Select State" value="" />
+                      {states.map((state) => (
+                        <Picker.Item
+                          key={state.id}
+                          label={formatLabel(state)}
+                          value={state.id}
+                        />
+                      ))}
+                    </Picker>
+                  )}
+                </View>
+              </View>
+
+              {/* LGA Picker */}
+              {!!stateId && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>LGA</Text>
+                  <View style={styles.pickerContainer}>
+                    {lgasLoading ? (
+                      <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="small" color="#007AFF" />
+                      </View>
+                    ) : (
+                      <Picker
+                        selectedValue={lgaId}
+                        onValueChange={handleLgaChange}
+                        style={styles.picker}
+                        itemStyle={styles.pickerItemStyle}
+                        enabled={!disabled}
+                      >
+                        <Picker.Item label="Select LGA" value="" />
+                        {lgas.map((lga) => (
+                          <Picker.Item
+                            key={lga.id}
+                            label={formatLabel(lga)}
+                            value={lga.id}
+                          />
+                        ))}
+                      </Picker>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {/* Ward Picker */}
+              {!!lgaId && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Ward</Text>
+                  <View style={styles.pickerContainer}>
+                    {wardsLoading ? (
+                      <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="small" color="#007AFF" />
+                      </View>
+                    ) : (
+                      <Picker
+                        selectedValue={wardId}
+                        onValueChange={handleWardChange}
+                        style={styles.picker}
+                        itemStyle={styles.pickerItemStyle}
+                        enabled={!disabled}
+                      >
+                        <Picker.Item label="Select Ward" value="" />
+                        {wards.map((ward) => (
+                          <Picker.Item
+                            key={ward.id}
+                            label={formatLabel(ward)}
+                            value={ward.id}
+                          />
+                        ))}
+                      </Picker>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {/* Polling Unit Picker */}
+              {showPollingUnit && !!wardId && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Polling Unit</Text>
+                  <View style={styles.pickerContainer}>
+                    {pollingUnitsLoading ? (
+                      <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="small" color="#007AFF" />
+                      </View>
+                    ) : (
+                      <Picker
+                        selectedValue={pollingUnitId}
+                        onValueChange={handlePollingUnitChange}
+                        style={styles.picker}
+                        itemStyle={styles.pickerItemStyle}
+                        enabled={!disabled}
+                      >
+                        <Picker.Item label="Select Polling Unit" value="" />
+                        {pollingUnits.map((unit) => (
+                          <Picker.Item
+                            key={unit.id}
+                            label={formatLabel(unit)}
+                            value={unit.id}
+                          />
+                        ))}
+                      </Picker>
+                    )}
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
         </View>
       )}
 
@@ -607,6 +736,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#007AFF',
     letterSpacing: 2,
+  },
+  foundLocationSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  foundLocationTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
   },
   dropdownSection: {
     gap: 4,

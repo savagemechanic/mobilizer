@@ -1,24 +1,26 @@
 import { useEffect } from 'react';
 import { useQuery } from '@apollo/client';
 import { useRouter, useSegments } from 'expo-router';
-import { GET_MY_ORGANIZATIONS } from '@/lib/graphql/queries/organizations';
+import { GET_ORGANIZATIONS_FOR_SELECTOR } from '@/lib/graphql/queries/organizations';
 import { useAuthStore } from '@/store/auth';
 
 /**
  * Hook to enforce organization membership requirement.
  * Redirects unauthenticated or organization-less users to appropriate screens.
+ * Note: Public organization doesn't count - users must join a real organization.
  */
 export function useRequireOrganization() {
   const router = useRouter();
   const segments = useSegments();
   const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
-  const { data, loading: orgsLoading } = useQuery(GET_MY_ORGANIZATIONS, {
+  const { data, loading: orgsLoading } = useQuery(GET_ORGANIZATIONS_FOR_SELECTOR, {
     skip: !isAuthenticated,
-    fetchPolicy: 'cache-and-network',
+    fetchPolicy: 'network-only',
   });
 
-  const organizations = data?.myOrganizations || [];
+  // organizations array excludes public org - only contains user's actual joined orgs
+  const organizations = data?.myOrganizationsForSelector?.organizations || [];
   const hasOrganizations = organizations.length > 0;
   const isLoading = authLoading || orgsLoading;
 

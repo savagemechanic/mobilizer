@@ -16,7 +16,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_ORGANIZATION_BY_SLUG, GET_MY_ORGANIZATIONS, GET_ORG_MEMBERS } from '@/lib/graphql/queries/organizations';
+import { GET_ORGANIZATION_BY_SLUG, GET_MY_ORGANIZATIONS, GET_ORG_MEMBERS, GET_ORGANIZATIONS_FOR_SELECTOR } from '@/lib/graphql/queries/organizations';
 import { JOIN_ORGANIZATION, LEAVE_ORGANIZATION, REGENERATE_INVITE_CODE } from '@/lib/graphql/mutations/organizations';
 import { useOrganizationsStore } from '@/store/organizations';
 import { useAuthStore } from '@/store/auth';
@@ -63,6 +63,9 @@ export default function OrganizationDetailScreen() {
 
   // Fetch user's organizations to check membership
   const { data: myOrgsData, refetch: refetchMyOrgs } = useQuery(GET_MY_ORGANIZATIONS);
+
+  // Refetch selector query when org membership changes
+  const { refetch: refetchSelectorOrgs } = useQuery(GET_ORGANIZATIONS_FOR_SELECTOR);
 
   // Mutations
   const [joinOrgMutation, { loading: joining }] = useMutation(JOIN_ORGANIZATION);
@@ -122,7 +125,7 @@ export default function OrganizationDetailScreen() {
 
       try {
         await leaveOrgMutation({ variables: { orgId: organization.id } });
-        await refetchMyOrgs();
+        await Promise.all([refetchMyOrgs(), refetchSelectorOrgs()]);
       } catch (error) {
         console.error('Error leaving organization:', error);
         setIsMember(true);
@@ -134,13 +137,13 @@ export default function OrganizationDetailScreen() {
 
       try {
         await joinOrgMutation({ variables: { orgId: organization.id } });
-        await refetchMyOrgs();
+        await Promise.all([refetchMyOrgs(), refetchSelectorOrgs()]);
       } catch (error) {
         console.error('Error joining organization:', error);
         setIsMember(false);
       }
     }
-  }, [organization, isMember, joinOrgMutation, leaveOrgMutation, optimisticJoin, optimisticLeave, refetchMyOrgs]);
+  }, [organization, isMember, joinOrgMutation, leaveOrgMutation, optimisticJoin, optimisticLeave, refetchMyOrgs, refetchSelectorOrgs]);
 
   // Handle view members
   const handleViewMembers = useCallback(() => {

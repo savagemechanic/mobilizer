@@ -15,7 +15,7 @@ import {
 import { useRouter, useLocalSearchParams, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLazyQuery, useMutation } from '@apollo/client';
-import { GET_ORGANIZATION_BY_CODE, GET_MY_ORGANIZATIONS } from '@/lib/graphql/queries/organizations';
+import { GET_ORGANIZATION_BY_CODE, GET_MY_ORGANIZATIONS, GET_ORGANIZATIONS_FOR_SELECTOR } from '@/lib/graphql/queries/organizations';
 import { JOIN_ORGANIZATION_BY_CODE } from '@/lib/graphql/mutations/organizations';
 import { Button } from '@/components/ui';
 import { useAuthStore } from '@/store/auth';
@@ -82,7 +82,7 @@ export default function JoinOrganizationScreen() {
 
   // Mutation to join by code
   const [joinByCode, { loading: joining }] = useMutation(JOIN_ORGANIZATION_BY_CODE, {
-    refetchQueries: [{ query: GET_MY_ORGANIZATIONS }],
+    refetchQueries: [{ query: GET_MY_ORGANIZATIONS }, { query: GET_ORGANIZATIONS_FOR_SELECTOR }],
     onCompleted: (data) => {
       const org = data?.joinOrganizationByCode?.organization;
 

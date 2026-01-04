@@ -16,7 +16,7 @@ import { useRouter } from 'expo-router';
 import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import { useOrganizationsStore } from '@/store/organizations';
 import { OrganizationCard } from '@/components/organizations';
-import { GET_ORGANIZATIONS, GET_MY_ORGANIZATIONS } from '@/lib/graphql/queries/organizations';
+import { GET_ORGANIZATIONS, GET_MY_ORGANIZATIONS, GET_ORGANIZATIONS_FOR_SELECTOR } from '@/lib/graphql/queries/organizations';
 import { JOIN_ORGANIZATION, LEAVE_ORGANIZATION } from '@/lib/graphql/mutations/organizations';
 import { SEARCH_USERS } from '@/lib/graphql/queries/chat';
 import { CREATE_CONVERSATION } from '@/lib/graphql/mutations/chat';
@@ -118,6 +118,9 @@ export default function DiscoverScreen() {
     },
   });
 
+  // Refetch selector query when org membership changes
+  const { refetch: refetchSelectorOrgs } = useQuery(GET_ORGANIZATIONS_FOR_SELECTOR);
+
   // Mutations
   const [joinOrgMutation] = useMutation(JOIN_ORGANIZATION);
   const [leaveOrgMutation] = useMutation(LEAVE_ORGANIZATION);
@@ -209,14 +212,14 @@ export default function DiscoverScreen() {
 
       try {
         await joinOrgMutation({ variables: { orgId } });
-        // Refetch my organizations
-        refetchMyOrgs();
+        // Refetch my organizations and selector
+        await Promise.all([refetchMyOrgs(), refetchSelectorOrgs()]);
       } catch (error) {
         console.error('Error joining organization:', error);
         // TODO: Revert optimistic update
       }
     },
-    [joinOrgMutation, optimisticJoin, refetchMyOrgs]
+    [joinOrgMutation, optimisticJoin, refetchMyOrgs, refetchSelectorOrgs]
   );
 
   // Handle leave
@@ -226,14 +229,14 @@ export default function DiscoverScreen() {
 
       try {
         await leaveOrgMutation({ variables: { orgId } });
-        // Refetch my organizations
-        refetchMyOrgs();
+        // Refetch my organizations and selector
+        await Promise.all([refetchMyOrgs(), refetchSelectorOrgs()]);
       } catch (error) {
         console.error('Error leaving organization:', error);
         // TODO: Revert optimistic update
       }
     },
-    [leaveOrgMutation, optimisticLeave, refetchMyOrgs]
+    [leaveOrgMutation, optimisticLeave, refetchMyOrgs, refetchSelectorOrgs]
   );
 
   // Check if user is a member of an organization
