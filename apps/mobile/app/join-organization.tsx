@@ -10,6 +10,7 @@ import {
   Platform,
   Image,
   Alert,
+  Keyboard,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -143,8 +144,9 @@ export default function JoinOrganizationScreen() {
 
   // Handle lookup
   const handleLookup = useCallback(() => {
-    if (code.length < 6) {
-      Alert.alert('Invalid Code', 'Please enter a valid invite code (at least 6 characters).');
+    Keyboard.dismiss();
+    if (code.length < 3) {
+      Alert.alert('Invalid Code', 'Please enter a valid 3-character invite code.');
       return;
     }
     lookupOrg({ variables: { code } });
@@ -211,11 +213,11 @@ export default function JoinOrganizationScreen() {
             style={styles.codeInput}
             value={code}
             onChangeText={handleCodeChange}
-            placeholder="ABCD1234"
+            placeholder="ABC"
             placeholderTextColor="#999"
             autoCapitalize="characters"
             autoCorrect={false}
-            maxLength={10}
+            maxLength={3}
             textAlign="center"
           />
           <Button
@@ -223,7 +225,7 @@ export default function JoinOrganizationScreen() {
             onPress={handleLookup}
             variant="secondary"
             loading={lookingUp}
-            disabled={code.length < 6}
+            disabled={code.length < 3}
             style={styles.lookupButton}
           />
         </View>

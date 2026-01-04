@@ -9,6 +9,8 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  Keyboard,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Link } from 'expo-router';
@@ -20,6 +22,8 @@ import { REGISTER } from '@/lib/graphql/mutations/auth';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
+import { PROFESSIONS } from '@/types';
+import { Picker } from '@react-native-picker/picker';
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -27,6 +31,11 @@ const registerSchema = z.object({
   confirmPassword: z.string().min(6, 'Please confirm your password'),
   firstName: z.string().min(2, 'First name is required'),
   lastName: z.string().min(2, 'Last name is required'),
+  username: z.string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(30, 'Username must be at most 30 characters')
+    .regex(/^[a-z0-9_]+$/, 'Only lowercase letters, numbers, and underscores'),
+  profession: z.string().optional(),
   phoneNumber: z.string().optional(),
   locationCode: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -61,6 +70,8 @@ export default function RegisterScreen() {
       confirmPassword: '',
       firstName: '',
       lastName: '',
+      username: '',
+      profession: '',
       phoneNumber: '',
     },
   });
@@ -104,10 +115,12 @@ export default function RegisterScreen() {
         password: data.password,
         firstName: data.firstName,
         lastName: data.lastName,
+        username: data.username.toLowerCase(),
       };
 
       // Add optional fields
       if (data.phoneNumber) input.phoneNumber = data.phoneNumber;
+      if (data.profession) input.profession = data.profession;
 
       // Add location fields (all required)
       if (!useLocationCode) {
@@ -151,6 +164,15 @@ export default function RegisterScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.content}>
+          {/* Mobilizer Logo */}
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('@/assets/images/mobilizer-logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Sign up to get started</Text>
 
@@ -208,6 +230,58 @@ export default function RegisterScreen() {
             </View>
 
             <View style={styles.inputContainer}>
+              <Text style={styles.label}>Username <Text style={styles.requiredAsterisk}>*</Text></Text>
+              <Controller
+                control={control}
+                name="username"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <View style={styles.usernameContainer}>
+                    <Text style={styles.usernamePrefix}>@</Text>
+                    <TextInput
+                      style={[styles.input, styles.usernameInput, errors.username && styles.inputError]}
+                      placeholder="your_username"
+                      placeholderTextColor="#999"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      onBlur={onBlur}
+                      onChangeText={(text) => onChange(text.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                      value={value}
+                      editable={!isLoading}
+                    />
+                  </View>
+                )}
+              />
+              {errors.username && (
+                <Text style={styles.errorText}>{errors.username.message}</Text>
+              )}
+              <Text style={styles.helperText}>3-30 characters, lowercase letters, numbers, and underscores only</Text>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Profession (Optional)</Text>
+              <Controller
+                control={control}
+                name="profession"
+                render={({ field: { onChange, value } }) => (
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={value}
+                      onValueChange={onChange}
+                      enabled={!isLoading}
+                      style={styles.picker}
+                      dropdownIconColor="#000"
+                    >
+                      <Picker.Item label="Select your profession" value="" color="#666" style={styles.pickerItem} />
+                      {PROFESSIONS.map((profession) => (
+                        <Picker.Item key={profession} label={profession} value={profession} color="#000" style={styles.pickerItem} />
+                      ))}
+                    </Picker>
+                  </View>
+                )}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
               <Controller
                 control={control}
@@ -262,7 +336,7 @@ export default function RegisterScreen() {
                   disabled={isLoading}
                 >
                   <Text style={styles.toggleText}>
-                    {useLocationCode ? 'Use Dropdowns' : 'Use Code'}
+                    {useLocationCode ? 'Use Dropdowns' : 'Use PVC Code'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -275,9 +349,12 @@ export default function RegisterScreen() {
                     render={({ field: { onChange, onBlur, value } }) => (
                       <TextInput
                         style={styles.input}
-                        placeholder="e.g., 25-012-03-001"
+                        placeholder="Enter your PVC code (e.g., 25-012-03-001)"
                         placeholderTextColor="#999"
-                        autoCapitalize="none"
+                        autoCapitalize="characters"
+                        autoCorrect={false}
+                        returnKeyType="done"
+                        onSubmitEditing={() => Keyboard.dismiss()}
                         onBlur={onBlur}
                         onChangeText={onChange}
                         value={value}
@@ -286,7 +363,7 @@ export default function RegisterScreen() {
                     )}
                   />
                   <Text style={styles.codeHelpText}>
-                    Format: StateID-LGAID-WardID-PollingUnitID
+                    Enter the code from your Voter Card (PVC)
                   </Text>
                 </View>
               ) : (
@@ -411,16 +488,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 40,
   },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  logo: {
+    width: 100,
+    height: 100,
+  },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#000',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
     marginBottom: 24,
+    textAlign: 'center',
   },
   errorContainer: {
     backgroundColor: '#FFF2F2',
@@ -527,5 +614,42 @@ const styles = StyleSheet.create({
   requiredAsterisk: {
     color: '#FF3B30',
     fontWeight: '600',
+  },
+  usernameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  usernamePrefix: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
+    marginRight: 4,
+    marginLeft: 12,
+  },
+  usernameInput: {
+    flex: 1,
+    paddingLeft: 8,
+  },
+  helperText: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    borderRadius: 8,
+    backgroundColor: '#F9F9F9',
+    overflow: 'hidden',
+  },
+  picker: {
+    height: Platform.OS === 'ios' ? 150 : 50,
+    width: '100%',
+    color: '#000',
+  },
+  pickerItem: {
+    fontSize: 16,
+    color: '#000',
   },
 });

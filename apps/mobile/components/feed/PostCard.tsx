@@ -28,6 +28,7 @@ interface PostCardProps {
   post: Post;
   onLike?: (postId: string) => void;
   onComment?: (postId: string) => void;
+  onRepost?: (postId: string) => void;
   onShare?: (postId: string) => void;
   onPress?: (postId: string) => void;
   onVote?: (postId: string, pollId: string, optionId: string) => void;
@@ -38,6 +39,7 @@ export function PostCard({
   post,
   onLike,
   onComment,
+  onRepost,
   onShare,
   onPress,
   onVote,
@@ -75,7 +77,12 @@ export function PostCard({
     onComment?.(post.id);
   };
 
-  // Handle share press
+  // Handle repost press (internal repost)
+  const handleRepost = () => {
+    onRepost?.(post.id);
+  };
+
+  // Handle share press (external share)
   const handleShare = () => {
     onShare?.(post.id);
   };
@@ -247,8 +254,9 @@ export function PostCard({
         </View>
       )}
 
-      {/* Actions - X/Twitter style */}
+      {/* Actions - Comment, Like, Repost, Share */}
       <View style={styles.actions}>
+        {/* Comment */}
         <TouchableOpacity
           style={styles.actionButton}
           onPress={handleComment}
@@ -260,17 +268,7 @@ export function PostCard({
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={handleShare}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="repeat-outline" size={22} color="#536471" />
-          {post.shareCount > 0 && (
-            <Text style={styles.actionCount}>{formatCount(post.shareCount)}</Text>
-          )}
-        </TouchableOpacity>
-
+        {/* Like */}
         <TouchableOpacity
           style={styles.actionButton}
           onPress={handleLike}
@@ -288,11 +286,25 @@ export function PostCard({
           )}
         </TouchableOpacity>
 
+        {/* Repost (retweet icon) */}
         <TouchableOpacity
           style={styles.actionButton}
+          onPress={handleRepost}
           activeOpacity={0.7}
         >
-          <Ionicons name="bookmark-outline" size={20} color="#536471" />
+          <Ionicons name="repeat-outline" size={22} color="#536471" />
+          {post.shareCount > 0 && (
+            <Text style={styles.actionCount}>{formatCount(post.shareCount)}</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Share (actual share icon) */}
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={handleShare}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="share-social-outline" size={20} color="#536471" />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>

@@ -14,6 +14,7 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_ORGANIZATION_BY_SLUG, GET_MY_ORGANIZATIONS, GET_ORG_MEMBERS } from '@/lib/graphql/queries/organizations';
 import { JOIN_ORGANIZATION, LEAVE_ORGANIZATION, REGENERATE_INVITE_CODE } from '@/lib/graphql/mutations/organizations';
@@ -40,6 +41,7 @@ const LEVEL_COLORS: Record<string, string> = {
 
 export default function OrganizationDetailScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const [isMember, setIsMember] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -215,7 +217,7 @@ export default function OrganizationDetailScreen() {
       }
     >
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
@@ -466,7 +468,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    paddingTop: 48,
     paddingHorizontal: 16,
   },
   backButton: {

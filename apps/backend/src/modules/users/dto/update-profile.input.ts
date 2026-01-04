@@ -47,6 +47,11 @@ export class UpdateProfileInput {
 
   @Field({ nullable: true })
   @IsOptional()
+  @IsString()
+  profession?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
   dateOfBirth?: Date;
 
   @Field(() => Gender, { nullable: true })

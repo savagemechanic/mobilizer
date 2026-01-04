@@ -2,12 +2,13 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export type OrgLevel = 'STATE' | 'LGA' | 'WARD' | 'POLLING_UNIT';
+export type OrgLevel = 'GLOBAL' | 'COUNTRY' | 'STATE' | 'LGA' | 'WARD' | 'POLLING_UNIT';
 
 interface LocationCircle {
   id: string;
   level: OrgLevel;
   name: string;
+  code?: string; // e.g. "NGA" for Nigeria
   isActive?: boolean;
   hasNewPosts?: boolean;
 }
@@ -19,23 +20,29 @@ interface LocationCirclesProps {
   onInfoPress?: () => void;
 }
 
-const CIRCLE_SIZES = {
+const CIRCLE_SIZES: Record<OrgLevel, number> = {
+  GLOBAL: 90,
+  COUNTRY: 85,
   STATE: 80,
   LGA: 70,
   WARD: 60,
   POLLING_UNIT: 50,
 };
 
-const LEVEL_LABELS = {
+const LEVEL_LABELS: Record<OrgLevel, string> = {
+  GLOBAL: 'Global',
+  COUNTRY: 'Country',
   STATE: 'State',
   LGA: 'LGA',
   WARD: 'Ward',
-  POLLING_UNIT: 'PU',
+  POLLING_UNIT: 'Polling Unit',
 };
 
 // All levels use the same blue color
 const UNIFIED_COLOR = '#007AFF';
-const LEVEL_COLORS = {
+const LEVEL_COLORS: Record<OrgLevel, string> = {
+  GLOBAL: UNIFIED_COLOR,
+  COUNTRY: UNIFIED_COLOR,
   STATE: UNIFIED_COLOR,
   LGA: UNIFIED_COLOR,
   WARD: UNIFIED_COLOR,
@@ -55,6 +62,7 @@ export default function LocationCircles({
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          nestedScrollEnabled={true}
         >
         {circles.map((circle) => {
           const size = CIRCLE_SIZES[circle.level];
@@ -67,6 +75,7 @@ export default function LocationCircles({
               style={styles.circleContainer}
               onPress={() => onCirclePress(circle)}
             >
+              {/* Circle on TOP */}
               <View style={styles.circleWrapper}>
                 <View
                   style={[
@@ -75,9 +84,9 @@ export default function LocationCircles({
                       width: size,
                       height: size,
                       borderRadius: size / 2,
-                      borderColor: color,
+                      borderColor: isActive ? color : '#E0E0E0',
                       borderWidth: isActive ? 3 : circle.hasNewPosts ? 2 : 1,
-                      backgroundColor: isActive ? `${color}20` : '#F9F9F9',
+                      backgroundColor: isActive ? `${color}15` : '#F9F9F9',
                     },
                   ]}
                 >
@@ -96,11 +105,27 @@ export default function LocationCircles({
                   )}
                 </View>
               </View>
-              <Text style={styles.levelLabel} numberOfLines={1}>
-                {LEVEL_LABELS[circle.level]}
+
+              {/* Location name - below circle, bold, uppercase, blue when active */}
+              <Text
+                style={[
+                  styles.nameLabel,
+                  isActive && styles.nameLabelActive
+                ]}
+                numberOfLines={1}
+              >
+                {circle.name.toUpperCase()}
               </Text>
-              <Text style={styles.nameLabel} numberOfLines={1}>
-                {circle.name}
+
+              {/* Location type - at bottom, title case, not bold, blue when active */}
+              <Text
+                style={[
+                  styles.levelLabel,
+                  isActive && styles.levelLabelActive
+                ]}
+                numberOfLines={1}
+              >
+                {LEVEL_LABELS[circle.level]}
               </Text>
             </TouchableOpacity>
           );
@@ -123,7 +148,7 @@ export default function LocationCircles({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
-    paddingBottom: 12,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
   },
@@ -134,9 +159,10 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 12,
     paddingRight: 8,
-    gap: 12,
+    gap: 16,
     alignItems: 'center',
-    flex: 1,
+    flexGrow: 1,
+    minWidth: '100%',
   },
   infoButton: {
     padding: 8,
@@ -144,10 +170,11 @@ const styles = StyleSheet.create({
   },
   circleContainer: {
     alignItems: 'center',
-    width: 90,
+    width: 95,
+    paddingVertical: 4,
   },
   circleWrapper: {
-    height: 80,
+    height: 90,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -166,16 +193,26 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
   },
-  levelLabel: {
-    fontSize: 10,
-    color: '#666',
-    marginTop: 4,
-    fontWeight: '600',
-  },
+  // Name label - below circle, bold, uppercase
   nameLabel: {
     fontSize: 11,
     color: '#333',
-    marginTop: 2,
+    fontWeight: '700',
     textAlign: 'center',
+    marginTop: 6,
+  },
+  nameLabelActive: {
+    color: '#007AFF',
+  },
+  // Level label - at bottom, title case, not bold
+  levelLabel: {
+    fontSize: 10,
+    color: '#666',
+    marginTop: 2,
+    fontWeight: '400',
+    textAlign: 'center',
+  },
+  levelLabelActive: {
+    color: '#007AFF',
   },
 });

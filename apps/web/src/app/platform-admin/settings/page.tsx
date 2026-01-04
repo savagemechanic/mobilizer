@@ -1,11 +1,22 @@
 'use client'
 
-import { useState } from 'react'
-import { Settings, Save, Database, Mail, Bell, Shield, Globe, Zap, AlertCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation } from '@apollo/client'
+import { Settings, Save, Database, Mail, Bell, Shield, Globe, Zap, AlertCircle, Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { Label } from '@/ui/label'
+import { GET_PLATFORM_SETTINGS } from '@/lib/graphql/queries/platform-admin'
+import { TOGGLE_PUBLIC_ORG } from '@/lib/graphql/mutations/platform-admin'
+
+interface PlatformSettings {
+  id: string
+  publicOrgEnabled: boolean
+  publicOrgId?: string
+  createdAt: string
+  updatedAt: string
+}
 
 export default function PlatformSettingsPage() {
   const [saved, setSaved] = useState(false)
@@ -21,6 +32,27 @@ export default function PlatformSettingsPage() {
     allowPublicRegistration: true,
   })
 
+  // Fetch platform settings
+  const { data: settingsData, loading: settingsLoading, refetch } = useQuery<{ platformSettings: PlatformSettings }>(
+    GET_PLATFORM_SETTINGS,
+    { fetchPolicy: 'cache-and-network' }
+  )
+
+  const platformSettings = settingsData?.platformSettings
+
+  // Toggle public org mutation
+  const [togglePublicOrg, { loading: toggling }] = useMutation(TOGGLE_PUBLIC_ORG, {
+    onCompleted: () => {
+      refetch()
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    },
+    onError: (error) => {
+      console.error('Error toggling public org:', error)
+      alert('Failed to update setting: ' + error.message)
+    },
+  })
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target
     setFormData(prev => ({
@@ -30,10 +62,18 @@ export default function PlatformSettingsPage() {
   }
 
   const handleSave = () => {
-    // TODO: Implement actual save functionality
+    // TODO: Implement actual save functionality for other settings
     console.log('Saving settings:', formData)
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
+  }
+
+  const handleTogglePublicOrg = () => {
+    if (platformSettings) {
+      togglePublicOrg({
+        variables: { enabled: !platformSettings.publicOrgEnabled }
+      })
+    }
   }
 
   return (
@@ -61,6 +101,66 @@ export default function PlatformSettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Feature Flags - Real functionality */}
+      <Card className="border-indigo-100">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-indigo-600" />
+            Feature Flags
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {settingsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+              <span className="ml-2 text-gray-500">Loading settings...</span>
+            </div>
+          ) : (
+            <>
+              {/* Public Organization Toggle */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <Label className="text-base font-medium">Public Organization</Label>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Allow users to post publicly without joining an organization
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleTogglePublicOrg}
+                  disabled={toggling}
+                  className="p-0 h-auto hover:bg-transparent"
+                >
+                  {toggling ? (
+                    <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+                  ) : platformSettings?.publicOrgEnabled ? (
+                    <ToggleRight className="h-10 w-10 text-green-500" />
+                  ) : (
+                    <ToggleLeft className="h-10 w-10 text-gray-400" />
+                  )}
+                </Button>
+              </div>
+
+              {platformSettings?.publicOrgId && (
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    <strong>Public Org ID:</strong> {platformSettings.publicOrgId}
+                  </p>
+                </div>
+              )}
+
+              {/* Placeholder for future feature flags */}
+              <div className="border-t pt-4 mt-4">
+                <p className="text-sm text-gray-500 italic">
+                  More feature flags will be added here as they become available.
+                </p>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* General Settings */}
       <Card className="border-indigo-100">
@@ -221,25 +321,6 @@ export default function PlatformSettingsPage() {
               onChange={handleChange}
               className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Feature Flags */}
-      <Card className="border-indigo-100">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-indigo-600" />
-            Feature Flags
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-6 text-center">
-            <Zap className="h-12 w-12 mx-auto mb-3 text-indigo-400" />
-            <p className="text-indigo-700 font-medium mb-2">Feature Flags Coming Soon</p>
-            <p className="text-sm text-indigo-600">
-              Enable or disable platform features dynamically without code deployment
-            </p>
           </div>
         </CardContent>
       </Card>

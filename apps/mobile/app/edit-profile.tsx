@@ -10,6 +10,8 @@ import {
   Alert,
   ActionSheetIOS,
   Platform,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +23,7 @@ import { Avatar } from '@/components/ui';
 import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import { UPDATE_PROFILE } from '@/lib/graphql/mutations/users';
 import { GET_PRESIGNED_UPLOAD_URL, CHECK_UPLOAD_CONFIGURED } from '@/lib/graphql/mutations/upload';
+import { PROFESSIONS } from '@/types';
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -33,6 +36,8 @@ export default function EditProfileScreen() {
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || '');
+  const [profession, setProfession] = useState(user?.profession || '');
+  const [showProfessionPicker, setShowProfessionPicker] = useState(false);
   const [newAvatarUri, setNewAvatarUri] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
@@ -192,6 +197,7 @@ export default function EditProfileScreen() {
     if (displayName !== user?.displayName) input.displayName = displayName;
     if (bio !== user?.bio) input.bio = bio;
     if (phoneNumber !== user?.phoneNumber) input.phoneNumber = phoneNumber;
+    if (profession !== user?.profession) input.profession = profession;
 
     // Add location fields if changed
     if (location.stateId) input.stateId = location.stateId;
@@ -352,6 +358,20 @@ export default function EditProfileScreen() {
           </View>
 
           <View style={styles.inputGroup}>
+            <Text style={styles.label}>Profession</Text>
+            <TouchableOpacity
+              style={styles.pickerButton}
+              onPress={() => setShowProfessionPicker(true)}
+              disabled={loading}
+            >
+              <Text style={[styles.pickerButtonText, !profession && styles.placeholderText]}>
+                {profession || 'Select your profession'}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color="#666" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
             <TextInput
               style={[styles.input, styles.disabledInput]}
@@ -374,6 +394,51 @@ export default function EditProfileScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Profession Picker Modal */}
+      <Modal
+        visible={showProfessionPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowProfessionPicker(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Profession</Text>
+            <TouchableOpacity onPress={() => setShowProfessionPicker(false)}>
+              <Ionicons name="close" size={28} color="#000" />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={PROFESSIONS}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.professionItem,
+                  profession === item && styles.professionItemSelected,
+                ]}
+                onPress={() => {
+                  setProfession(item);
+                  setShowProfessionPicker(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.professionItemText,
+                    profession === item && styles.professionItemTextSelected,
+                  ]}
+                >
+                  {item}
+                </Text>
+                {profession === item && (
+                  <Ionicons name="checkmark" size={24} color="#007AFF" />
+                )}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -479,5 +544,61 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     marginTop: 4,
+  },
+  pickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F9F9F9',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  pickerButtonText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  placeholderText: {
+    color: '#999',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#FFF',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+  professionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  professionItemSelected: {
+    backgroundColor: '#F0F8FF',
+  },
+  professionItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  professionItemTextSelected: {
+    color: '#007AFF',
+    fontWeight: '600',
   },
 });

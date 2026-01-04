@@ -165,3 +165,52 @@ export const GET_USER_MEMBERSHIPS = gql`
     }
   }
 `;
+
+/**
+ * Query to fetch organizations for the selector component
+ * Returns user's orgs sorted by joinedAt (newest first) + Public org info
+ */
+export const GET_ORGANIZATIONS_FOR_SELECTOR = gql`
+  query GetOrganizationsForSelector {
+    myOrganizationsForSelector {
+      organizations {
+        id
+        name
+        slug
+        description
+        logo
+        level
+        memberCount
+        joinedAt
+      }
+      publicOrg {
+        id
+        name
+        slug
+        description
+        logo
+        level
+        memberCount
+      }
+      publicOrgEnabled
+      showAllOrgsOption
+    }
+  }
+`;
+
+/**
+ * Query to fetch the public organization
+ */
+export const GET_PUBLIC_ORGANIZATION = gql`
+  query GetPublicOrganization {
+    publicOrganization {
+      id
+      name
+      slug
+      description
+      logo
+      level
+      memberCount
+    }
+  }
+`;

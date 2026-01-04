@@ -17,7 +17,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDistanceToNow } from 'date-fns';
-import { Avatar } from '@/components/ui';
+import { Avatar, LeaderBadge } from '@/components/ui';
 import { GET_POST_WITH_COMMENTS } from '@/lib/graphql/queries/feed';
 import { CREATE_COMMENT, LIKE_POST, LIKE_COMMENT, SHARE_POST } from '@/lib/graphql/mutations/feed';
 import { Post as PostType, Comment } from '@/types';
@@ -25,6 +25,13 @@ import { Post as PostType, Comment } from '@/types';
 interface PostWithComments extends PostType {
   comments?: Comment[];
 }
+
+// Format count for X/Twitter style display
+const formatCount = (count: number): string => {
+  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
+  return count.toString();
+};
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -120,7 +127,20 @@ export default function PostDetailScreen() {
     }
   };
 
-  // Handle share
+  // Handle repost (internal - opens create post with quoted text)
+  const handleRepost = () => {
+    if (!post) return;
+
+    const authorName = getAuthorName(post.author);
+    const repostText = `"${post.content?.substring(0, 200)}${(post.content?.length || 0) > 200 ? '...' : ''}"\n— ${authorName}`;
+
+    router.push({
+      pathname: '/(modals)/create-post',
+      params: { repostText },
+    });
+  };
+
+  // Handle share (external share)
   const handleShare = async () => {
     if (!post) return;
 
@@ -245,7 +265,7 @@ export default function PostDetailScreen() {
       >
         {/* Post Content */}
         <View style={styles.postContainer}>
-          {/* Author Header */}
+          {/* Author Header - X/Twitter style */}
           <TouchableOpacity
             style={styles.authorHeader}
             onPress={() => handleAuthorPress(post.author.id)}
@@ -253,13 +273,25 @@ export default function PostDetailScreen() {
           >
             <Avatar uri={post.author?.avatar} name={authorName} size={48} />
             <View style={styles.authorInfo}>
-              <Text style={styles.authorName}>{authorName}</Text>
-              <View style={styles.metaRow}>
+              <View style={styles.headerTop}>
+                <View style={styles.authorNameRow}>
+                  <Text style={styles.authorName}>{authorName}</Text>
+                  {post.author?.isLeader && (
+                    <LeaderBadge level={post.author.leaderLevel} size="small" />
+                  )}
+                </View>
                 <Text style={styles.timestamp}>{timeAgo}</Text>
+              </View>
+              <View style={styles.metaRow}>
+                {post.author?.email && (
+                  <Text style={styles.authorHandle} numberOfLines={1}>
+                    @{post.author.email.split('@')[0]}
+                  </Text>
+                )}
                 {post.organization && (
                   <>
                     <Text style={styles.separator}>•</Text>
-                    <Text style={styles.orgName}>{post.organization.name}</Text>
+                    <Text style={styles.orgName} numberOfLines={1}>{post.organization.name}</Text>
                   </>
                 )}
               </View>
@@ -284,8 +316,21 @@ export default function PostDetailScreen() {
             </Text>
           </View>
 
-          {/* Post Actions */}
+          {/* Post Actions - Comment, Like, Repost, Share */}
           <View style={styles.actionsContainer}>
+            {/* Comment */}
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleCommentPress}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chatbubble-outline" size={22} color="#536471" />
+              {post.commentCount > 0 && (
+                <Text style={styles.actionCount}>{formatCount(post.commentCount)}</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Like */}
             <TouchableOpacity
               style={styles.actionButton}
               onPress={handleLike}
@@ -293,32 +338,35 @@ export default function PostDetailScreen() {
             >
               <Ionicons
                 name={post.isLiked ? 'heart' : 'heart-outline'}
-                size={24}
-                color={post.isLiked ? '#FF3B30' : '#333'}
+                size={22}
+                color={post.isLiked ? '#F91880' : '#536471'}
               />
-              <Text
-                style={[styles.actionText, post.isLiked && styles.actionTextLiked]}
-              >
-                Like
-              </Text>
+              {post.likeCount > 0 && (
+                <Text style={[styles.actionCount, post.isLiked && styles.actionCountLiked]}>
+                  {formatCount(post.likeCount)}
+                </Text>
+              )}
             </TouchableOpacity>
 
+            {/* Repost (retweet icon) */}
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={handleCommentPress}
+              onPress={handleRepost}
               activeOpacity={0.7}
             >
-              <Ionicons name="chatbubble-outline" size={24} color="#333" />
-              <Text style={styles.actionText}>Comment</Text>
+              <Ionicons name="repeat-outline" size={24} color="#536471" />
+              {post.shareCount > 0 && (
+                <Text style={styles.actionCount}>{formatCount(post.shareCount)}</Text>
+              )}
             </TouchableOpacity>
 
+            {/* Share (actual share icon) */}
             <TouchableOpacity
               style={styles.actionButton}
               onPress={handleShare}
               activeOpacity={0.7}
             >
-              <Ionicons name="share-outline" size={24} color="#333" />
-              <Text style={styles.actionText}>Share</Text>
+              <Ionicons name="share-social-outline" size={22} color="#536471" />
             </TouchableOpacity>
           </View>
         </View>
@@ -498,10 +546,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Post styles
+  // Post styles - X/Twitter style
   postContainer: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 16,
+    paddingVertical: 12,
     marginBottom: 8,
   },
   authorHeader: {
@@ -514,34 +562,52 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  authorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
   authorName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F1419',
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 1,
+  },
+  authorHandle: {
+    fontSize: 13,
+    color: '#536471',
+    flexShrink: 1,
   },
   timestamp: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 13,
+    color: '#536471',
   },
   separator: {
-    marginHorizontal: 6,
-    color: '#666',
+    marginHorizontal: 4,
+    color: '#536471',
+    fontSize: 13,
   },
   orgName: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#007AFF',
+    flexShrink: 1,
   },
   postContent: {
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 20,
     color: '#000',
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -550,33 +616,36 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#EFF3F4',
   },
   statsText: {
     fontSize: 14,
-    color: '#666',
+    color: '#536471',
     marginRight: 16,
   },
   actionsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#EFF3F4',
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    minWidth: 50,
   },
-  actionText: {
-    fontSize: 14,
-    color: '#333',
-    marginLeft: 6,
-    fontWeight: '500',
+  actionCount: {
+    fontSize: 13,
+    color: '#536471',
+    marginLeft: 4,
+    fontWeight: '400',
   },
-  actionTextLiked: {
-    color: '#FF3B30',
+  actionCountLiked: {
+    color: '#F91880',
   },
 
   // Comments styles

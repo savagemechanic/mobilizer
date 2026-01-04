@@ -140,6 +140,15 @@ export default function LoginScreen() {
       style={styles.container}
     >
       <View style={styles.content}>
+        {/* Mobilizer Logo */}
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('@/assets/images/mobilizer-logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
+
         <Text style={styles.title}>Welcome Back</Text>
         <Text style={styles.subtitle}>Sign in to continue</Text>
 
@@ -276,16 +285,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  logo: {
+    width: 120,
+    height: 120,
+  },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#000',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
     marginBottom: 24,
+    textAlign: 'center',
   },
   errorContainer: {
     backgroundColor: '#FFF2F2',

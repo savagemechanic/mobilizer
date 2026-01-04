@@ -1,9 +1,13 @@
 import { create } from 'zustand';
-import { Post } from '@/types';
+import { Post, Organization, LocationLevel } from '@/types';
 
-export type OrgLevel = 'STATE' | 'LGA' | 'WARD' | 'POLLING_UNIT';
+export type OrgLevel = 'GLOBAL' | 'COUNTRY' | 'STATE' | 'LGA' | 'WARD' | 'POLLING_UNIT';
+
+// Feed view type - which organization context the user is viewing
+export type FeedViewType = 'all' | 'public' | 'org';
 
 export interface LocationFilter {
+  countryId?: string;
   stateId?: string;
   lgaId?: string;
   wardId?: string;
@@ -20,6 +24,9 @@ interface FeedState {
   isRefreshing: boolean;
   error: string | null;
   locationFilter: LocationFilter | null;
+  currentViewingOrg: Organization | null;
+  currentViewType: FeedViewType;
+  currentLocationLevel: LocationLevel | null;
 
   // Actions
   setPosts: (posts: Post[]) => void;
@@ -34,6 +41,10 @@ interface FeedState {
   incrementOffset: () => void;
   resetFeed: () => void;
   setLocationFilter: (filter: LocationFilter | null) => void;
+  setCurrentViewingOrg: (org: Organization | null) => void;
+  setCurrentViewType: (type: FeedViewType) => void;
+  setCurrentLocationLevel: (level: LocationLevel | null) => void;
+  setFeedContext: (org: Organization | null, viewType: FeedViewType, locationLevel?: LocationLevel | null) => void;
 
   // Optimistic updates
   optimisticLike: (postId: string, isLiked: boolean) => void;
@@ -51,6 +62,9 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   isRefreshing: false,
   error: null,
   locationFilter: null,
+  currentViewingOrg: null,
+  currentViewType: 'all' as FeedViewType,
+  currentLocationLevel: null,
 
   // Set posts (replace all)
   setPosts: (posts: Post[]) => {
@@ -130,6 +144,30 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   // Set location filter
   setLocationFilter: (filter: LocationFilter | null) => {
     set({ locationFilter: filter });
+  },
+
+  // Set current viewing organization
+  setCurrentViewingOrg: (org: Organization | null) => {
+    set({ currentViewingOrg: org });
+  },
+
+  // Set current view type (all, public, or org)
+  setCurrentViewType: (type: FeedViewType) => {
+    set({ currentViewType: type });
+  },
+
+  // Set current location level being viewed
+  setCurrentLocationLevel: (level: LocationLevel | null) => {
+    set({ currentLocationLevel: level });
+  },
+
+  // Set full feed context at once (for convenience)
+  setFeedContext: (org: Organization | null, viewType: FeedViewType, locationLevel?: LocationLevel | null) => {
+    set({
+      currentViewingOrg: org,
+      currentViewType: viewType,
+      currentLocationLevel: locationLevel ?? null,
+    });
   },
 
   // Optimistic like update

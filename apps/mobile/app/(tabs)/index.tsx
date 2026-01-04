@@ -10,7 +10,7 @@ import {
   Share,
   Alert,
 } from 'react-native';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,7 +18,7 @@ import { useFeedStore, LocationFilter } from '@/store/feed';
 import { useAuthStore } from '@/store/auth';
 import { PostCard, LocationCircles, OrganizationSelector } from '@/components/feed';
 import type { OrgLevel } from '@/components/feed/LocationCircles';
-import { GET_FEED } from '@/lib/graphql/queries/feed';
+import { GET_FEED, GET_POST_SHARE_TEXT } from '@/lib/graphql/queries/feed';
 import { GET_MY_ORGANIZATIONS } from '@/lib/graphql/queries/organizations';
 import {
   LIKE_POST,
@@ -60,7 +60,7 @@ export default function FeedScreen() {
   // Fetch user's organizations
   const { data: orgsData } = useQuery(GET_MY_ORGANIZATIONS);
 
-  // Get user's location circles (reversed order: Polling Unit first, State last)
+  // Get user's location circles (reversed order: Polling Unit first, then up to Country)
   const locationCircles = React.useMemo(() => {
     if (!user?.location) return [];
 
@@ -96,7 +96,7 @@ export default function FeedScreen() {
       });
     }
 
-    // State level (last/rightmost)
+    // State level
     if (user.location.state) {
       circles.push({
         id: user.location.state.id,
@@ -105,6 +105,16 @@ export default function FeedScreen() {
         hasNewPosts: false,
       });
     }
+
+    // Country level (last/rightmost) - default to Nigeria if country not set
+    const countryData = user.location.country || { id: 'NGA', name: 'Nigeria' };
+    circles.push({
+      id: countryData.id,
+      level: 'COUNTRY' as OrgLevel,
+      name: countryData.name,
+      code: 'NGA', // 3-letter country code
+      hasNewPosts: false,
+    });
 
     return circles;
   }, [user]);
@@ -118,11 +128,11 @@ export default function FeedScreen() {
   }, [user, hasInitializedFilter, setLocationFilter]);
 
   // Build feed filter including both location and org filters
-  // Only include valid FeedFilterInput fields to avoid GraphQL errors
   const feedFilter = React.useMemo(() => {
     const filter: Record<string, string> = {};
 
-    // Only include valid location filter fields
+    // Include location filter fields
+    if (locationFilter?.countryId) filter.countryId = locationFilter.countryId;
     if (locationFilter?.stateId) filter.stateId = locationFilter.stateId;
     if (locationFilter?.lgaId) filter.lgaId = locationFilter.lgaId;
     if (locationFilter?.wardId) filter.wardId = locationFilter.wardId;
@@ -172,7 +182,7 @@ export default function FeedScreen() {
   usePolling(
     async () => {
       try {
-        const { data } = await refetch({ limit, offset: 0 });
+        const { data } = await refetch({ limit, offset: 0, filter: feedFilter });
         if (data?.feed && data.feed.length > 0) {
           // Check if there are new posts
           const latestPostId = posts[0]?.id;
@@ -254,22 +264,40 @@ export default function FeedScreen() {
     [router]
   );
 
-  // Handle share
-  const handleShare = useCallback(
-    async (postId: string) => {
+  // Lazy query for share text
+  const [getShareText] = useLazyQuery(GET_POST_SHARE_TEXT);
+
+  // Handle repost (internal share - opens create post with quoted text)
+  const handleRepost = useCallback(
+    (postId: string) => {
+      // Find the post to get its content
       const post = posts.find((p) => p.id === postId);
       if (!post) return;
 
-      const authorName =
-        post.author?.displayName ||
+      // Build repost text locally
+      const authorName = post.author?.displayName ||
         `${post.author?.firstName} ${post.author?.lastName}`.trim() ||
-        'Someone';
+        'Anonymous';
+      const contentPreview = post.content?.substring(0, 200) || '';
+      const ellipsis = (post.content?.length || 0) > 200 ? '...' : '';
+      const repostText = `"${contentPreview}${ellipsis}"\n— ${authorName}`;
 
-      const shareMessage = post.content
-        ? `${authorName} shared: "${post.content.substring(0, 100)}${post.content.length > 100 ? '...' : ''}"`
-        : `Check out this post by ${authorName}`;
+      // Navigate to create post with the repost text
+      router.push({
+        pathname: '/(modals)/create-post',
+        params: { repostText },
+      });
+    },
+    [posts, router]
+  );
 
+  // Handle external share (with marketing text)
+  const handleExternalShare = useCallback(
+    async (postId: string) => {
       try {
+        const { data } = await getShareText({ variables: { postId } });
+        const shareMessage = data?.postShareText || 'Check out this post on Mobilizer!';
+
         const result = await Share.share({
           message: shareMessage,
         });
@@ -286,7 +314,7 @@ export default function FeedScreen() {
         Alert.alert('Error', 'Failed to share post');
       }
     },
-    [posts, sharePostMutation]
+    [getShareText, sharePostMutation]
   );
 
   // Handle post press
@@ -341,6 +369,13 @@ export default function FeedScreen() {
     if (newActiveLevel) {
       filter = {};
       switch (newActiveLevel) {
+        case 'GLOBAL':
+          // No filter for global level - shows all accessible posts
+          filter = null;
+          break;
+        case 'COUNTRY':
+          filter.countryId = circle.id;
+          break;
         case 'STATE':
           filter.stateId = circle.id;
           break;
@@ -372,12 +407,13 @@ export default function FeedScreen() {
         post={item}
         onLike={handleLike}
         onComment={handleComment}
-        onShare={handleShare}
+        onRepost={handleRepost}
+        onShare={handleExternalShare}
         onPress={handlePostPress}
         onVote={handleVote}
       />
     ),
-    [handleLike, handleComment, handleShare, handlePostPress, handleVote]
+    [handleLike, handleComment, handleRepost, handleExternalShare, handlePostPress, handleVote]
   );
 
   // Render list footer

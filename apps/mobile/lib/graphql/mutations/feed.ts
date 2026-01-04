@@ -110,6 +110,7 @@ export interface CreatePostInput {
   type?: string;
   mediaUrls?: string[];
   orgId?: string;
+  locationLevel?: 'COUNTRY' | 'STATE' | 'LGA' | 'WARD' | 'POLLING_UNIT';
   poll?: CreatePollInput;
 }
 

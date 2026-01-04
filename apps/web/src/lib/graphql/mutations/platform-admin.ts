@@ -162,3 +162,27 @@ export const CREATE_PLATFORM_ADMIN_USER = gql`
     }
   }
 `
+
+export const TOGGLE_PUBLIC_ORG = gql`
+  mutation TogglePublicOrg($enabled: Boolean!) {
+    togglePublicOrg(enabled: $enabled) {
+      id
+      publicOrgEnabled
+      publicOrgId
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const SET_PUBLIC_ORG_ID = gql`
+  mutation SetPublicOrgId($orgId: String!) {
+    setPublicOrgId(orgId: $orgId) {
+      id
+      publicOrgEnabled
+      publicOrgId
+      createdAt
+      updatedAt
+    }
+  }
+`

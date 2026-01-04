@@ -12,6 +12,8 @@ export interface User {
   avatar?: string;
   bio?: string;
   phoneNumber?: string;
+  username?: string;
+  profession?: string;
   gender?: string;
   dateOfBirth?: string;
   isEmailVerified: boolean;
@@ -60,7 +62,59 @@ export interface RegisterInput {
   firstName: string;
   lastName: string;
   phoneNumber?: string;
+  username: string;
+  profession?: string;
+  stateId?: string;
+  lgaId?: string;
+  wardId?: string;
+  pollingUnitId?: string;
 }
+
+// Location level type for post creation and feed filtering
+export type LocationLevel = 'GLOBAL' | 'COUNTRY' | 'STATE' | 'LGA' | 'WARD' | 'POLLING_UNIT';
+
+// Organization selector types
+export interface OrganizationWithJoinDate extends Organization {
+  joinedAt?: string;
+}
+
+export interface OrganizationsForSelector {
+  organizations: OrganizationWithJoinDate[];
+  publicOrg?: Organization;
+  publicOrgEnabled: boolean;
+  showAllOrgsOption: boolean;
+}
+
+// Platform settings
+export interface PlatformSettings {
+  id: string;
+  publicOrgEnabled: boolean;
+  publicOrgId?: string;
+}
+
+// Professions list for dropdown
+export const PROFESSIONS = [
+  'Student',
+  'Teacher/Educator',
+  'Healthcare Professional',
+  'Engineer',
+  'Business Owner',
+  'Civil Servant',
+  'Legal Professional',
+  'Finance/Banking',
+  'IT/Technology',
+  'Agriculture/Farming',
+  'Artisan/Tradesperson',
+  'Retail/Commerce',
+  'Transport/Logistics',
+  'Media/Journalism',
+  'Security Services',
+  'Religious Leader',
+  'Community Leader',
+  'Unemployed',
+  'Retired',
+  'Other',
+] as const;
 
 // Navigation types
 export type RootStackParamList = {

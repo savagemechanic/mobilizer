@@ -225,3 +225,21 @@ export const GET_REPLIES = gql`
   }
 `;
 
+/**
+ * Query to get share text for a post with location context (for external sharing - includes marketing text)
+ */
+export const GET_POST_SHARE_TEXT = gql`
+  query GetPostShareText($postId: String!) {
+    postShareText(postId: $postId)
+  }
+`;
+
+/**
+ * Query to get repost text for a post (for internal repost - no marketing text)
+ */
+export const GET_POST_REPOST_TEXT = gql`
+  query GetPostRepostText($postId: String!) {
+    postRepostText(postId: $postId)
+  }
+`;
+

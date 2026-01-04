@@ -138,3 +138,15 @@ export const SEARCH_USERS = gql`
     }
   }
 `
+
+export const GET_PLATFORM_SETTINGS = gql`
+  query GetPlatformSettings {
+    platformSettings {
+      id
+      publicOrgEnabled
+      publicOrgId
+      createdAt
+      updatedAt
+    }
+  }
+`

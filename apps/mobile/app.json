@@ -4,14 +4,14 @@
     "slug": "mobilizer",
     "version": "2.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/images/mobilizer-logo.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "scheme": "mobilizer",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/images/mobilizer-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#3498DB"
     },
     "ios": {
       "supportsTablet": true,
@@ -19,8 +19,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/mobilizer-logo.png",
+        "backgroundColor": "#3498DB"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -36,10 +36,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
+          "image": "./assets/images/mobilizer-logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#3498DB"
         }
       ]
     ],
