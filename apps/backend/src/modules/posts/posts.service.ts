@@ -1037,14 +1037,14 @@ export class PostsService {
       : 'Join the conversation in your location.';
 
     // Build the share text as a single formatted string
+    // URL is inline with CTA to prevent WhatsApp from extracting just the URL
     const shareText = includeMarketing
       ? `"${contentPreview}"
 -- ${authorName}${locationString}.
 
 ${inviteText}
 
-Download the Mobiliser app today, on iPhone or Android.
-https://mobiliser.app/download`
+Download the Mobiliser app today, on iPhone or Android: https://mobiliser.app/download`
       : `"${contentPreview}"
 -- ${authorName}${locationString}.`;
 
