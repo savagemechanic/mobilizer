@@ -1,6 +1,7 @@
 import { Resolver, Mutation, Query, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
-import { UploadService, UploadType } from './upload.service';
+import { UploadService } from './upload.service';
+import { UploadType } from '../firebase/firebase.service';
 import { GqlAuthGuard } from '../../common/guards/gql-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PresignedUploadUrl } from './dto/presigned-url.dto';

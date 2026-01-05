@@ -71,7 +71,10 @@
       "FIREBASE_PROJECT_ID": "mobilizer-fc4ea",
       "FIREBASE_STORAGE_BUCKET": "mobilizer-fc4ea.firebasestorage.app",
       "FIREBASE_MESSAGING_SENDER_ID": "339124171156",
-      "FIREBASE_APP_ID": "1:339124171156:android:432a46a304b50708501f81"
+      "FIREBASE_APP_ID": "1:339124171156:android:432a46a304b50708501f81",
+      "googleWebClientId": "339124171156-YOUR_WEB_CLIENT_ID.apps.googleusercontent.com",
+      "googleIosClientId": "339124171156-YOUR_IOS_CLIENT_ID.apps.googleusercontent.com",
+      "googleAndroidClientId": "339124171156-YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com"
     },
     "owner": "savagemechanic"
   }

@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { UploadService } from './upload.service';
 import { UploadResolver } from './upload.resolver';
+import { FirebaseModule } from '../firebase/firebase.module';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [FirebaseModule],
   providers: [UploadService, UploadResolver],
   exports: [UploadService],
 })

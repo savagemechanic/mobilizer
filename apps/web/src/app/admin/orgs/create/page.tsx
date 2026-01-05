@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { Label } from '@/ui/label'
+import { ImageUpload } from '@/ui/image-upload'
 import {
   Select,
   SelectContent,
@@ -453,25 +454,23 @@ export default function CreateOrgPage() {
               </div>
             )}
 
-            {/* Optional: Logo URL */}
-            <div className="space-y-2">
-              <Label htmlFor="logo">Logo URL (Optional)</Label>
-              <Input
-                id="logo"
-                placeholder="https://example.com/logo.png"
-                {...register('logo')}
-              />
-            </div>
+            {/* Logo Upload */}
+            <ImageUpload
+              value={watch('logo')}
+              onChange={(url) => setValue('logo', url)}
+              type="organization"
+              label="Organization Logo (Optional)"
+              aspectRatio="square"
+            />
 
-            {/* Optional: Banner URL */}
-            <div className="space-y-2">
-              <Label htmlFor="banner">Banner URL (Optional)</Label>
-              <Input
-                id="banner"
-                placeholder="https://example.com/banner.png"
-                {...register('banner')}
-              />
-            </div>
+            {/* Banner Upload */}
+            <ImageUpload
+              value={watch('banner')}
+              onChange={(url) => setValue('banner', url)}
+              type="organization"
+              label="Organization Banner (Optional)"
+              aspectRatio="banner"
+            />
 
             {/* Action Buttons */}
             <div className="flex gap-2 pt-4">

@@ -291,4 +291,72 @@ export class LocationsService {
 
     return { valid: true, state, lga, ward, pollingUnit };
   }
+
+  // ============================================
+  // LOCATION LEADERS
+  // ============================================
+
+  /**
+   * Get leaders for a specific location
+   * Leaders are org admins of organizations at this location level
+   */
+  async getLocationLeaders(locationId: string, locationType: string) {
+    // Build the location filter based on location type
+    const locationFilter: Record<string, string> = {};
+
+    switch (locationType) {
+      case 'STATE':
+        locationFilter.stateId = locationId;
+        break;
+      case 'LGA':
+        locationFilter.lgaId = locationId;
+        break;
+      case 'WARD':
+        locationFilter.wardId = locationId;
+        break;
+      case 'POLLING_UNIT':
+        locationFilter.pollingUnitId = locationId;
+        break;
+      default:
+        return [];
+    }
+
+    // Find organization admins at this location
+    const admins = await this.prisma.orgMembership.findMany({
+      where: {
+        isAdmin: true,
+        isActive: true,
+        approvedAt: { not: null },
+        organization: locationFilter,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            displayName: true,
+            avatar: true,
+          },
+        },
+        organization: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      distinct: ['userId'],
+      take: 20,
+    });
+
+    // Map to LocationLeader format
+    return admins.map((admin) => ({
+      id: admin.user.id,
+      firstName: admin.user.firstName,
+      lastName: admin.user.lastName,
+      displayName: admin.user.displayName,
+      avatar: admin.user.avatar,
+      role: `${admin.organization.name} Admin`,
+    }));
+  }
 }

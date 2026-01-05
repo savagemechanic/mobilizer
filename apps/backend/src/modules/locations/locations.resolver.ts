@@ -7,6 +7,7 @@ import {
   Ward,
   PollingUnit,
   LocationLookupResult,
+  LocationLeader,
 } from './entities/location.entity';
 
 @Resolver()
@@ -100,5 +101,17 @@ export class LocationsResolver {
     @Args('code', { type: () => String }) code: string,
   ) {
     return this.locationsService.lookupByCode(code);
+  }
+
+  // ============================================
+  // LOCATION LEADERS
+  // ============================================
+
+  @Query(() => [LocationLeader], { name: 'locationLeaders' })
+  async locationLeaders(
+    @Args('locationId', { type: () => String }) locationId: string,
+    @Args('locationType', { type: () => String }) locationType: string,
+  ) {
+    return this.locationsService.getLocationLeaders(locationId, locationType);
   }
 }

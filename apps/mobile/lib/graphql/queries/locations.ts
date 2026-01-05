@@ -219,3 +219,19 @@ export const LOOKUP_LOCATION_BY_CODE = gql`
     }
   }
 `;
+
+/**
+ * Query to fetch leaders for a specific location
+ */
+export const GET_LOCATION_LEADERS = gql`
+  query GetLocationLeaders($locationId: String!, $locationType: String!) {
+    locationLeaders(locationId: $locationId, locationType: $locationType) {
+      id
+      firstName
+      lastName
+      displayName
+      avatar
+      role
+    }
+  }
+`;

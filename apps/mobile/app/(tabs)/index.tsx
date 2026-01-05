@@ -384,7 +384,7 @@ export default function FeedScreen() {
     setLoading(false);
   }, [resetFeed, setLoading, setFeedContext]);
 
-  // Handle location circle press
+  // Handle location circle press (first tap - toggle selection)
   const handleLocationCirclePress = useCallback(async (circle: any) => {
     console.log('📍 Selected location level:', circle.level, circle.name);
 
@@ -431,6 +431,19 @@ export default function FeedScreen() {
     setLoading(false);
   }, [activeLevel, setLocationFilter, setCurrentLocationLevel, resetFeed, setLoading]);
 
+  // Handle location info press (second tap on already active location)
+  const handleLocationInfoPress = useCallback((circle: any) => {
+    console.log('📍 Opening location info:', circle.level, circle.name);
+    router.push({
+      pathname: '/location-info',
+      params: {
+        id: circle.id,
+        level: circle.level,
+        name: circle.name,
+      },
+    });
+  }, [router]);
+
   // Render post item
   const renderPost = useCallback(
     ({ item }: { item: Post }) => (
@@ -458,6 +471,26 @@ export default function FeedScreen() {
     );
   }, [hasMore]);
 
+  // Get current location name and type for empty state message
+  const currentLocationInfo = React.useMemo(() => {
+    if (!activeLevel || !locationCircles.length) return null;
+    const circle = locationCircles.find((c) => c.level === activeLevel);
+    if (!circle) return null;
+
+    const levelLabels: Record<string, string> = {
+      POLLING_UNIT: 'polling unit',
+      WARD: 'ward',
+      LGA: 'LGA',
+      STATE: 'state',
+      COUNTRY: 'country',
+    };
+
+    return {
+      name: circle.name,
+      type: levelLabels[circle.level] || circle.level.toLowerCase(),
+    };
+  }, [activeLevel, locationCircles]);
+
   // Render empty state
   const renderEmpty = useCallback(() => {
     if (loading) {
@@ -470,14 +503,16 @@ export default function FeedScreen() {
 
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="newspaper-outline" size={64} color="#CCC" />
+        <Ionicons name="chatbubbles-outline" size={64} color="#CCC" />
         <Text style={styles.emptyText}>No posts yet</Text>
         <Text style={styles.emptySubtext}>
-          Follow some organizations to see their posts here
+          {currentLocationInfo
+            ? `Say something to kick off a conversation in ${currentLocationInfo.name} ${currentLocationInfo.type}`
+            : 'Be the first to start a conversation'}
         </Text>
       </View>
     );
-  }, [loading]);
+  }, [loading, currentLocationInfo]);
 
   if (error) {
     return (
@@ -525,7 +560,9 @@ export default function FeedScreen() {
         <LocationCircles
           circles={locationCircles}
           onCirclePress={handleLocationCirclePress}
+          onLocationInfoPress={handleLocationInfoPress}
           activeLevel={activeLevel}
+          orgLogo={selectedOrg?.logo}
         />
       )}
 

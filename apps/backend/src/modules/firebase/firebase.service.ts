@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
+import { v4 as uuidv4 } from 'uuid';
 
 interface FCMMessage {
   token: string;
@@ -18,12 +19,24 @@ interface MulticastMessage {
   imageUrl?: string;
 }
 
+export type UploadType = 'avatar' | 'post' | 'organization' | 'event';
+
+interface UploadResult {
+  uploadUrl: string;
+  fileUrl: string;
+  key: string;
+}
+
 @Injectable()
 export class FirebaseService implements OnModuleInit {
   private readonly logger = new Logger(FirebaseService.name);
   private app: admin.app.App | null = null;
+  private bucket: admin.storage.Storage | null = null;
+  private storageBucket: string;
 
-  constructor(private configService: ConfigService) {}
+  constructor(private configService: ConfigService) {
+    this.storageBucket = this.configService.get<string>('FIREBASE_STORAGE_BUCKET') || '';
+  }
 
   onModuleInit() {
     this.initializeFirebase();
@@ -33,7 +46,7 @@ export class FirebaseService implements OnModuleInit {
     const serviceAccountJson = this.configService.get<string>('FIREBASE_SERVICE_ACCOUNT');
 
     if (!serviceAccountJson) {
-      this.logger.warn('Firebase service account not configured. FCM notifications will be disabled.');
+      this.logger.warn('Firebase service account not configured. FCM notifications and storage will be disabled.');
       return;
     }
 
@@ -43,10 +56,16 @@ export class FirebaseService implements OnModuleInit {
       if (!admin.apps.length) {
         this.app = admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
+          storageBucket: this.storageBucket,
         });
         this.logger.log('Firebase Admin SDK initialized successfully');
       } else {
         this.app = admin.app();
+      }
+
+      if (this.storageBucket) {
+        this.bucket = admin.storage();
+        this.logger.log(`Firebase Storage initialized with bucket: ${this.storageBucket}`);
       }
     } catch (error) {
       this.logger.error('Failed to initialize Firebase Admin SDK:', error.message);
@@ -58,6 +77,107 @@ export class FirebaseService implements OnModuleInit {
    */
   isConfigured(): boolean {
     return this.app !== null;
+  }
+
+  /**
+   * Check if Firebase Storage is configured
+   */
+  isStorageConfigured(): boolean {
+    return this.bucket !== null && !!this.storageBucket;
+  }
+
+  /**
+   * Generate a signed upload URL for Firebase Storage
+   */
+  async getSignedUploadUrl(
+    userId: string,
+    type: UploadType,
+    fileName: string,
+    contentType: string,
+  ): Promise<UploadResult> {
+    if (!this.bucket || !this.storageBucket) {
+      throw new Error('Firebase Storage is not configured');
+    }
+
+    // Validate content type
+    const allowedTypes = this.getAllowedContentTypes(type);
+    if (!allowedTypes.includes(contentType)) {
+      throw new Error(
+        `Invalid file type. Allowed types for ${type}: ${allowedTypes.join(', ')}`
+      );
+    }
+
+    // Generate unique file path
+    const extension = this.getFileExtension(fileName);
+    const key = `${type}s/${userId}/${uuidv4()}${extension}`;
+
+    const bucket = this.bucket.bucket();
+    const file = bucket.file(key);
+
+    // Generate signed URL for upload (expires in 15 minutes)
+    const [uploadUrl] = await file.getSignedUrl({
+      version: 'v4',
+      action: 'write',
+      expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+      contentType,
+    });
+
+    // Generate public URL for the file
+    const fileUrl = `https://firebasestorage.googleapis.com/v0/b/${this.storageBucket}/o/${encodeURIComponent(key)}?alt=media`;
+
+    return {
+      uploadUrl,
+      fileUrl,
+      key,
+    };
+  }
+
+  /**
+   * Delete a file from Firebase Storage
+   */
+  async deleteFile(key: string): Promise<boolean> {
+    if (!this.bucket) {
+      this.logger.warn('Firebase Storage not configured, cannot delete file');
+      return false;
+    }
+
+    try {
+      const bucket = this.bucket.bucket();
+      await bucket.file(key).delete();
+      this.logger.debug(`File deleted: ${key}`);
+      return true;
+    } catch (error) {
+      this.logger.error(`Failed to delete file: ${error.message}`);
+      return false;
+    }
+  }
+
+  private getAllowedContentTypes(type: UploadType): string[] {
+    switch (type) {
+      case 'avatar':
+      case 'organization':
+        return ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      case 'post':
+        return [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/gif',
+          'video/mp4',
+          'video/quicktime',
+          'video/webm',
+        ];
+      case 'event':
+        return ['image/jpeg', 'image/png', 'image/webp'];
+      default:
+        return ['image/jpeg', 'image/png'];
+    }
+  }
+
+  private getFileExtension(fileName: string): string {
+    const lastDot = fileName.lastIndexOf('.');
+    if (lastDot === -1) return '';
+    return fileName.substring(lastDot).toLowerCase();
   }
 
   /**

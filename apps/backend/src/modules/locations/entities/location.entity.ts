@@ -119,3 +119,24 @@ export class LocationLookupResult {
   @Field(() => PollingUnit, { nullable: true })
   pollingUnit?: PollingUnit;
 }
+
+@ObjectType()
+export class LocationLeader {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  firstName: string;
+
+  @Field()
+  lastName: string;
+
+  @Field({ nullable: true })
+  displayName?: string;
+
+  @Field({ nullable: true })
+  avatar?: string;
+
+  @Field({ nullable: true })
+  role?: string;
+}
