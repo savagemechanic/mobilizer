@@ -30,6 +30,7 @@ import { PushNotificationsModule } from './modules/push-notifications/push-notif
 import { JobsModule } from './jobs/jobs.module';
 import { AiModule } from './modules/ai/ai.module';
 import { FirebaseModule } from './modules/firebase/firebase.module';
+import { LegalModule } from './modules/legal/legal.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
     PushNotificationsModule,
     JobsModule,
     AiModule,
+    LegalModule,
   ],
   providers: [PrismaService],
 })
