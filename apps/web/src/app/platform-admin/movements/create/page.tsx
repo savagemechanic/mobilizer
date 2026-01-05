@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { Label } from '@/ui/label'
+import { ImageUpload } from '@/ui/image-upload'
 import { CREATE_MOVEMENT } from '@/lib/graphql/mutations/platform-admin'
 
 export default function CreateMovementPage() {
@@ -17,6 +18,8 @@ export default function CreateMovementPage() {
     name: '',
     description: '',
     website: '',
+    logo: '',
+    banner: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -81,6 +84,8 @@ export default function CreateMovementPage() {
             name: formData.name.trim(),
             description: formData.description.trim() || undefined,
             website: formData.website.trim() || undefined,
+            logo: formData.logo || undefined,
+            banner: formData.banner || undefined,
           }
         }
       })
@@ -173,12 +178,22 @@ export default function CreateMovementPage() {
               </p>
             </div>
 
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-              <h4 className="font-semibold text-indigo-900 mb-2">Logo & Banner Upload</h4>
-              <p className="text-sm text-indigo-700 mb-3">
-                Logo and banner image uploads will be available after the movement is created.
-                You can add these from the movement detail page.
-              </p>
+            <div className="grid gap-6 md:grid-cols-2">
+              <ImageUpload
+                value={formData.logo}
+                onChange={(url) => setFormData(prev => ({ ...prev, logo: url }))}
+                type="organization"
+                label="Movement Logo (Optional)"
+                aspectRatio="square"
+              />
+
+              <ImageUpload
+                value={formData.banner}
+                onChange={(url) => setFormData(prev => ({ ...prev, banner: url }))}
+                type="organization"
+                label="Movement Banner (Optional)"
+                aspectRatio="banner"
+              />
             </div>
 
             <div className="flex gap-3 pt-4">

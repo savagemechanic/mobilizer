@@ -7,6 +7,7 @@ import { MovementAdmin } from './entities/movement-admin.entity';
 import { CreateMovementInput } from './dto/create-movement.input';
 import { UpdateMovementInput } from './dto/update-movement.input';
 import { MovementFilterInput } from './dto/movement-filter.input';
+import { CreateSuperAdminInput } from './dto/create-super-admin.input';
 import { GqlAuthGuard } from '../../common/guards/gql-auth.guard';
 import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { PlatformAdmin } from '../../common/decorators/platform-admin.decorator';
@@ -155,5 +156,18 @@ export class MovementsResolver {
     @Args('userId', { type: () => String }) userId: string,
   ) {
     return this.movementsService.revokeSuperAdmin(movementId, userId);
+  }
+
+  /**
+   * Create a new user and assign them as Super Admin (Platform Admin only)
+   */
+  @Mutation(() => MovementAdmin, { name: 'createSuperAdminUser' })
+  @UseGuards(GqlAuthGuard, PlatformAdminGuard)
+  @PlatformAdmin()
+  async createSuperAdminUser(
+    @CurrentUser() user: any,
+    @Args('input') input: CreateSuperAdminInput,
+  ) {
+    return this.movementsService.createSuperAdminUser(input, user.id);
   }
 }

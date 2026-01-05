@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@apollo/client';
 import { Avatar } from '@/components/ui';
-import { GET_LOCATION_LEADERS, GET_LOCATION_STATS } from '@/lib/graphql/queries/locations';
+import { GET_LOCATION_LEADERS, GET_LOCATION_STATS, GET_LOCATION_ANALYTICS } from '@/lib/graphql/queries/locations';
 
 const LEVEL_LABELS: Record<string, string> = {
   POLLING_UNIT: 'Polling Unit',
@@ -60,8 +60,18 @@ export default function LocationInfoScreen() {
     skip: !id || !level,
   });
 
+  // Query for AI analytics
+  const { data: analyticsData, loading: analyticsLoading } = useQuery(GET_LOCATION_ANALYTICS, {
+    variables: {
+      locationId: id,
+      locationType: level,
+    },
+    skip: !id || !level,
+  });
+
   const leaders: Leader[] = data?.locationLeaders || [];
   const stats = statsData?.locationStats || { memberCount: 0, postCount: 0, eventCount: 0 };
+  const analytics = analyticsData?.locationAnalytics?.analytics || null;
 
   const getLeaderName = (leader: Leader) => {
     return leader.displayName || `${leader.firstName} ${leader.lastName}`.trim();
@@ -92,9 +102,33 @@ export default function LocationInfoScreen() {
           <Text style={styles.locationType}>{LEVEL_LABELS[level || ''] || level}</Text>
         </View>
 
+        {/* AI Analytics Section */}
+        <View style={styles.section}>
+          <View style={styles.aiHeaderRow}>
+            <Ionicons name="sparkles" size={18} color="#007AFF" />
+            <Text style={styles.sectionTitle}>AI Analytics</Text>
+          </View>
+
+          {analyticsLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#007AFF" />
+              <Text style={styles.loadingText}>Generating insights...</Text>
+            </View>
+          ) : analytics ? (
+            <View style={styles.analyticsContainer}>
+              <Text style={styles.analyticsText}>{analytics}</Text>
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="analytics-outline" size={48} color="#CCC" />
+              <Text style={styles.emptyText}>No analytics available</Text>
+            </View>
+          )}
+        </View>
+
         {/* Leaders Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Leaders</Text>
+          <Text style={[styles.sectionTitle, styles.sectionTitlePadded]}>Leaders</Text>
 
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -143,7 +177,7 @@ export default function LocationInfoScreen() {
 
         {/* Stats Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Statistics</Text>
+          <Text style={[styles.sectionTitle, styles.sectionTitlePadded]}>Statistics</Text>
           {statsLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color="#007AFF" />
@@ -239,14 +273,37 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingVertical: 16,
   },
+  aiHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    gap: 6,
+  },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
     color: '#666',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  sectionTitlePadded: {
     paddingHorizontal: 16,
     marginBottom: 12,
+  },
+  analyticsContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#F0F8FF',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#007AFF',
+  },
+  analyticsText: {
+    fontSize: 15,
+    color: '#333',
+    lineHeight: 22,
   },
   loadingContainer: {
     flexDirection: 'row',

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateOrgInput } from './dto/create-org.input';
+import { UpdateOrgInput } from './dto/update-org.input';
 import { OrganizationFilterInput } from './dto/org-filter.input';
 import { MakeLeaderInput } from './dto/make-leader.input';
 import { LeaderLevel } from '@prisma/client';
@@ -178,6 +179,76 @@ export class OrganizationsService {
     });
 
     return org;
+  }
+
+  async update(id: string, input: UpdateOrgInput, requesterId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id },
+    });
+
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    // Check if requester is admin of this organization
+    const requesterMembership = await this.prisma.orgMembership.findUnique({
+      where: {
+        userId_orgId: {
+          userId: requesterId,
+          orgId: id,
+        },
+      },
+    });
+
+    if (!requesterMembership?.isAdmin) {
+      throw new ConflictException('Only admins can update organization');
+    }
+
+    // If name is being updated, regenerate slug and check for conflicts
+    let slug: string | undefined;
+    if (input.name) {
+      slug = this.generateSlug(input.name);
+
+      // Check if new slug conflicts with existing organization
+      const existingOrg = await this.prisma.organization.findFirst({
+        where: {
+          slug,
+          id: { not: id },
+        },
+      });
+
+      if (existingOrg) {
+        throw new ConflictException('Organization with this name already exists');
+      }
+    }
+
+    const updatedOrg = await this.prisma.organization.update({
+      where: { id },
+      data: {
+        ...(input.name && { name: input.name, slug }),
+        ...(input.description !== undefined && { description: input.description }),
+        ...(input.logo !== undefined && { logo: input.logo }),
+        ...(input.banner !== undefined && { banner: input.banner }),
+        ...(input.isActive !== undefined && { isActive: input.isActive }),
+      },
+      include: {
+        parent: true,
+        state: true,
+        lga: true,
+        ward: true,
+        pollingUnit: true,
+        country: true,
+        _count: {
+          select: {
+            memberships: true,
+            posts: true,
+            events: true,
+          },
+        },
+      },
+    });
+
+    return updatedOrg;
   }
 
   async joinOrganization(userId: string, orgId: string) {

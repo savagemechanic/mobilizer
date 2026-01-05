@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMovementInput } from './dto/create-movement.input';
 import { UpdateMovementInput } from './dto/update-movement.input';
 import { MovementFilterInput } from './dto/movement-filter.input';
+import { CreateSuperAdminInput } from './dto/create-super-admin.input';
 import { MovementStats, MembersByLevel, RecentActivity } from './entities/movement-stats.entity';
 
 @Injectable()
@@ -363,6 +365,75 @@ export class MovementsService {
     });
 
     return true;
+  }
+
+  /**
+   * Create a new user and assign them as Super Admin (Platform Admin only)
+   */
+  async createSuperAdminUser(input: CreateSuperAdminInput, assignedBy: string) {
+    // Check if movement exists
+    const movement = await this.prisma.movement.findUnique({
+      where: { id: input.movementId },
+    });
+
+    if (!movement) {
+      throw new NotFoundException('Movement not found');
+    }
+
+    // Check if email already exists
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: input.email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(input.password, 10);
+
+    // Create user and assign as super admin in a transaction
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Create the user
+      const user = await tx.user.create({
+        data: {
+          email: input.email.toLowerCase(),
+          password: hashedPassword,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          displayName: `${input.firstName} ${input.lastName}`,
+          phoneNumber: input.phoneNumber,
+          isActive: true,
+          isEmailVerified: true, // Platform admin created accounts are pre-verified
+        },
+      });
+
+      // Assign as super admin
+      const movementAdmin = await tx.movementAdmin.create({
+        data: {
+          movementId: input.movementId,
+          userId: user.id,
+          assignedBy,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              displayName: true,
+              email: true,
+              avatar: true,
+            },
+          },
+          movement: true,
+        },
+      });
+
+      return movementAdmin;
+    });
+
+    return result;
   }
 
   /**

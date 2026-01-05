@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation } from '@apollo/client'
-import { Shield, UserPlus, UserMinus, Search, Filter, Layers } from 'lucide-react'
+import { Shield, UserPlus, UserMinus, Search, Filter, Layers, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
+import { Label } from '@/ui/label'
 import { Avatar } from '@/ui/avatar'
 import { GET_MOVEMENTS, SEARCH_USERS } from '@/lib/graphql/queries/platform-admin'
-import { ASSIGN_SUPER_ADMIN, REVOKE_SUPER_ADMIN } from '@/lib/graphql/mutations/platform-admin'
+import { ASSIGN_SUPER_ADMIN, REVOKE_SUPER_ADMIN, CREATE_SUPER_ADMIN_USER } from '@/lib/graphql/mutations/platform-admin'
 
 export default function SuperAdminsPage() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -16,6 +17,16 @@ export default function SuperAdminsPage() {
   const [showAssignForm, setShowAssignForm] = useState(false)
   const [userSearchQuery, setUserSearchQuery] = useState('')
   const [selectedMovementForAssign, setSelectedMovementForAssign] = useState('')
+  const [assignMode, setAssignMode] = useState<'search' | 'create'>('search')
+  const [showPassword, setShowPassword] = useState(false)
+  const [newAdminForm, setNewAdminForm] = useState({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    phoneNumber: '',
+  })
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
   const { data: movementsData, loading: movementsLoading, refetch } = useQuery(GET_MOVEMENTS, {
     variables: {
@@ -50,6 +61,25 @@ export default function SuperAdminsPage() {
     }
   })
 
+  const [createSuperAdminUser, { loading: createLoading }] = useMutation(CREATE_SUPER_ADMIN_USER, {
+    onCompleted: () => {
+      setShowAssignForm(false)
+      setNewAdminForm({
+        email: '',
+        password: '',
+        firstName: '',
+        lastName: '',
+        phoneNumber: '',
+      })
+      setSelectedMovementForAssign('')
+      setAssignMode('search')
+      refetch()
+    },
+    onError: (error) => {
+      setFormErrors({ submit: error.message })
+    }
+  })
+
   const handleAssignSuperAdmin = async (userId: string) => {
     if (!selectedMovementForAssign) {
       alert('Please select a movement first')
@@ -65,6 +95,60 @@ export default function SuperAdminsPage() {
       })
     } catch (err) {
       console.error('Error assigning super admin:', err)
+    }
+  }
+
+  const validateNewAdminForm = () => {
+    const errors: Record<string, string> = {}
+
+    if (!newAdminForm.email.trim()) {
+      errors.email = 'Email is required'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newAdminForm.email)) {
+      errors.email = 'Please enter a valid email'
+    }
+
+    if (!newAdminForm.password) {
+      errors.password = 'Password is required'
+    } else if (newAdminForm.password.length < 8) {
+      errors.password = 'Password must be at least 8 characters'
+    }
+
+    if (!newAdminForm.firstName.trim()) {
+      errors.firstName = 'First name is required'
+    }
+
+    if (!newAdminForm.lastName.trim()) {
+      errors.lastName = 'Last name is required'
+    }
+
+    if (!selectedMovementForAssign) {
+      errors.movement = 'Please select a movement'
+    }
+
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handleCreateSuperAdmin = async () => {
+    if (!validateNewAdminForm()) {
+      return
+    }
+
+    try {
+      await createSuperAdminUser({
+        variables: {
+          input: {
+            email: newAdminForm.email.trim(),
+            password: newAdminForm.password,
+            firstName: newAdminForm.firstName.trim(),
+            lastName: newAdminForm.lastName.trim(),
+            movementId: selectedMovementForAssign,
+            phoneNumber: newAdminForm.phoneNumber.trim() || undefined,
+          }
+        }
+      })
+    } catch (err) {
+      console.error('Error creating super admin:', err)
     }
   }
 
@@ -210,12 +294,47 @@ export default function SuperAdminsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Mode Toggle */}
+            <div className="flex gap-2 p-1 bg-indigo-100 rounded-lg">
+              <button
+                onClick={() => setAssignMode('search')}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                  assignMode === 'search'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-indigo-600 hover:bg-indigo-50'
+                }`}
+              >
+                Search Existing User
+              </button>
+              <button
+                onClick={() => setAssignMode('create')}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                  assignMode === 'create'
+                    ? 'bg-white text-indigo-700 shadow-sm'
+                    : 'text-indigo-600 hover:bg-indigo-50'
+                }`}
+              >
+                Create New Account
+              </button>
+            </div>
+
+            {formErrors.submit && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                {formErrors.submit}
+              </div>
+            )}
+
             <div className="space-y-2">
-              <label className="text-sm font-medium">Select Movement</label>
+              <Label className="text-sm font-medium">Select Movement *</Label>
               <select
                 value={selectedMovementForAssign}
-                onChange={(e) => setSelectedMovementForAssign(e.target.value)}
-                className="w-full px-3 py-2 border border-indigo-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                onChange={(e) => {
+                  setSelectedMovementForAssign(e.target.value)
+                  setFormErrors((prev) => ({ ...prev, movement: '' }))
+                }}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                  formErrors.movement ? 'border-red-500' : 'border-indigo-300'
+                }`}
               >
                 <option value="">Choose a movement...</option>
                 {movements.map((movement: any) => (
@@ -224,59 +343,175 @@ export default function SuperAdminsPage() {
                   </option>
                 ))}
               </select>
+              {formErrors.movement && (
+                <p className="text-sm text-red-500">{formErrors.movement}</p>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Search User</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search by name or email..."
-                  value={userSearchQuery}
-                  onChange={(e) => setUserSearchQuery(e.target.value)}
-                  className="pl-10 border-indigo-300"
-                  disabled={!selectedMovementForAssign}
-                />
-              </div>
-            </div>
-
-            {searchLoading && (
-              <p className="text-sm text-indigo-600">Searching...</p>
-            )}
-
-            {searchData?.searchUsers && searchData.searchUsers.length > 0 && (
-              <div className="space-y-2">
-                {searchData.searchUsers.map((user: any) => (
-                  <div key={user.id} className="flex items-center justify-between bg-white p-3 rounded border border-indigo-200">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        {user.avatar ? (
-                          <img src={user.avatar} alt={user.firstName} />
-                        ) : (
-                          <div className="bg-indigo-600 text-white flex items-center justify-center h-full text-sm">
-                            {user.firstName?.[0]}{user.lastName?.[0]}
-                          </div>
-                        )}
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{user.firstName} {user.lastName}</p>
-                        <p className="text-sm text-gray-500">{user.email}</p>
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => handleAssignSuperAdmin(user.id)}
-                      size="sm"
-                      className="bg-indigo-600 hover:bg-indigo-700"
-                    >
-                      Assign
-                    </Button>
+            {assignMode === 'search' ? (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Search User</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search by name or email..."
+                      value={userSearchQuery}
+                      onChange={(e) => setUserSearchQuery(e.target.value)}
+                      className="pl-10 border-indigo-300"
+                      disabled={!selectedMovementForAssign}
+                    />
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
 
-            {userSearchQuery.length >= 2 && !searchLoading && (!searchData?.searchUsers || searchData.searchUsers.length === 0) && (
-              <p className="text-sm text-gray-500">No users found</p>
+                {searchLoading && (
+                  <p className="text-sm text-indigo-600">Searching...</p>
+                )}
+
+                {searchData?.searchUsers && searchData.searchUsers.length > 0 && (
+                  <div className="space-y-2">
+                    {searchData.searchUsers.map((user: any) => (
+                      <div key={user.id} className="flex items-center justify-between bg-white p-3 rounded border border-indigo-200">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            {user.avatar ? (
+                              <img src={user.avatar} alt={user.firstName} />
+                            ) : (
+                              <div className="bg-indigo-600 text-white flex items-center justify-center h-full text-sm">
+                                {user.firstName?.[0]}{user.lastName?.[0]}
+                              </div>
+                            )}
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{user.firstName} {user.lastName}</p>
+                            <p className="text-sm text-gray-500">{user.email}</p>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => handleAssignSuperAdmin(user.id)}
+                          size="sm"
+                          className="bg-indigo-600 hover:bg-indigo-700"
+                        >
+                          Assign
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {userSearchQuery.length >= 2 && !searchLoading && (!searchData?.searchUsers || searchData.searchUsers.length === 0) && (
+                  <p className="text-sm text-gray-500">No users found</p>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name *</Label>
+                    <Input
+                      id="firstName"
+                      placeholder="John"
+                      value={newAdminForm.firstName}
+                      onChange={(e) => {
+                        setNewAdminForm((prev) => ({ ...prev, firstName: e.target.value }))
+                        setFormErrors((prev) => ({ ...prev, firstName: '' }))
+                      }}
+                      className={formErrors.firstName ? 'border-red-500' : 'border-indigo-300'}
+                    />
+                    {formErrors.firstName && (
+                      <p className="text-sm text-red-500">{formErrors.firstName}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name *</Label>
+                    <Input
+                      id="lastName"
+                      placeholder="Doe"
+                      value={newAdminForm.lastName}
+                      onChange={(e) => {
+                        setNewAdminForm((prev) => ({ ...prev, lastName: e.target.value }))
+                        setFormErrors((prev) => ({ ...prev, lastName: '' }))
+                      }}
+                      className={formErrors.lastName ? 'border-red-500' : 'border-indigo-300'}
+                    />
+                    {formErrors.lastName && (
+                      <p className="text-sm text-red-500">{formErrors.lastName}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="john.doe@example.com"
+                    value={newAdminForm.email}
+                    onChange={(e) => {
+                      setNewAdminForm((prev) => ({ ...prev, email: e.target.value }))
+                      setFormErrors((prev) => ({ ...prev, email: '' }))
+                    }}
+                    className={formErrors.email ? 'border-red-500' : 'border-indigo-300'}
+                  />
+                  {formErrors.email && (
+                    <p className="text-sm text-red-500">{formErrors.email}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password *</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Minimum 8 characters"
+                      value={newAdminForm.password}
+                      onChange={(e) => {
+                        setNewAdminForm((prev) => ({ ...prev, password: e.target.value }))
+                        setFormErrors((prev) => ({ ...prev, password: '' }))
+                      }}
+                      className={`pr-10 ${formErrors.password ? 'border-red-500' : 'border-indigo-300'}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {formErrors.password && (
+                    <p className="text-sm text-red-500">{formErrors.password}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber">Phone Number (Optional)</Label>
+                  <Input
+                    id="phoneNumber"
+                    type="tel"
+                    placeholder="+1 234 567 8900"
+                    value={newAdminForm.phoneNumber}
+                    onChange={(e) => setNewAdminForm((prev) => ({ ...prev, phoneNumber: e.target.value }))}
+                    className="border-indigo-300"
+                  />
+                </div>
+
+                <Button
+                  onClick={handleCreateSuperAdmin}
+                  disabled={createLoading}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700"
+                >
+                  {createLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create & Assign Super Admin'
+                  )}
+                </Button>
+              </>
             )}
 
             <Button
@@ -284,6 +519,15 @@ export default function SuperAdminsPage() {
                 setShowAssignForm(false)
                 setUserSearchQuery('')
                 setSelectedMovementForAssign('')
+                setAssignMode('search')
+                setNewAdminForm({
+                  email: '',
+                  password: '',
+                  firstName: '',
+                  lastName: '',
+                  phoneNumber: '',
+                })
+                setFormErrors({})
               }}
               variant="outline"
               className="w-full"

@@ -93,9 +93,9 @@ function OrgDetailContent({ id }: { id: string }) {
   const organization = data?.organization
   const members = membersData?.getOrgMembers || []
 
-  // Handle edit mode
+  // Handle edit mode - navigate to edit page
   const handleEdit = () => {
-    router.push(`/admin/orgs/${id}?mode=edit`)
+    router.push(`/admin/orgs/${id}/edit`)
   }
 
   // Handle delete

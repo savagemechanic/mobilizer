@@ -186,3 +186,28 @@ export const SET_PUBLIC_ORG_ID = gql`
     }
   }
 `
+
+export const CREATE_SUPER_ADMIN_USER = gql`
+  mutation CreateSuperAdminUser($input: CreateSuperAdminInput!) {
+    createSuperAdminUser(input: $input) {
+      id
+      userId
+      movementId
+      assignedAt
+      assignedBy
+      user {
+        id
+        firstName
+        lastName
+        displayName
+        email
+        avatar
+      }
+      movement {
+        id
+        name
+        slug
+      }
+    }
+  }
+`

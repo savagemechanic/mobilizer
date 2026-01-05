@@ -248,3 +248,15 @@ export const GET_LOCATION_STATS = gql`
     }
   }
 `;
+
+/**
+ * Query to fetch AI analytics for a specific location
+ */
+export const GET_LOCATION_ANALYTICS = gql`
+  query GetLocationAnalytics($locationId: String!, $locationType: String!) {
+    locationAnalytics(locationId: $locationId, locationType: $locationType) {
+      analytics
+      generatedAt
+    }
+  }
+`;

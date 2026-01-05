@@ -16,6 +16,15 @@ class OrganizationAISummaryResponse {
   generatedAt: Date;
 }
 
+@ObjectType()
+class LocationAnalyticsResponse {
+  @Field()
+  analytics: string;
+
+  @Field()
+  generatedAt: Date;
+}
+
 @Resolver()
 export class AiResolver {
   constructor(private readonly aiService: AiService) {}
@@ -33,6 +42,20 @@ export class AiResolver {
     return {
       summary,
       suggestions,
+      generatedAt: new Date(),
+    };
+  }
+
+  @Query(() => LocationAnalyticsResponse)
+  @UseGuards(GqlAuthGuard)
+  async locationAnalytics(
+    @Args('locationId') locationId: string,
+    @Args('locationType') locationType: string,
+  ): Promise<LocationAnalyticsResponse> {
+    const analytics = await this.aiService.generateLocationAnalytics(locationId, locationType);
+
+    return {
+      analytics,
       generatedAt: new Date(),
     };
   }

@@ -3,13 +3,14 @@
 import { useState, useEffect, use } from 'react'
 import { useQuery, useMutation } from '@apollo/client'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Edit2, Save, X, UserPlus, UserMinus, Building2, Users, Shield, Loader2, Search } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, X, UserPlus, UserMinus, Building2, Users, Shield, Loader2, Search, ImageIcon } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { Label } from '@/ui/label'
 import { Avatar } from '@/ui/avatar'
+import { ImageUpload } from '@/ui/image-upload'
 import { GET_MOVEMENT, SEARCH_USERS } from '@/lib/graphql/queries/platform-admin'
 import { UPDATE_MOVEMENT, ASSIGN_SUPER_ADMIN, REVOKE_SUPER_ADMIN } from '@/lib/graphql/mutations/platform-admin'
 
@@ -23,6 +24,8 @@ export default function MovementDetailPage({ params }: { params: Promise<{ id: s
     name: '',
     description: '',
     website: '',
+    logo: '',
+    banner: '',
   })
 
   const { data, loading, error, refetch } = useQuery(GET_MOVEMENT, {
@@ -61,6 +64,8 @@ export default function MovementDetailPage({ params }: { params: Promise<{ id: s
         name: data.movement.name || '',
         description: data.movement.description || '',
         website: data.movement.website || '',
+        logo: data.movement.logo || '',
+        banner: data.movement.banner || '',
       })
     }
   }, [data])
@@ -79,6 +84,8 @@ export default function MovementDetailPage({ params }: { params: Promise<{ id: s
             name: formData.name.trim(),
             description: formData.description.trim() || undefined,
             website: formData.website.trim() || undefined,
+            logo: formData.logo || undefined,
+            banner: formData.banner || undefined,
           }
         }
       })
@@ -440,16 +447,66 @@ export default function MovementDetailPage({ params }: { params: Promise<{ id: s
         </CardContent>
       </Card>
 
-      {/* Image Upload Placeholder */}
+      {/* Logo & Banner Images */}
       <Card className="border-indigo-100">
         <CardHeader>
-          <CardTitle>Logo & Banner Images</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <ImageIcon className="h-5 w-5 text-indigo-600" />
+            Logo & Banner Images
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="bg-indigo-50 border-2 border-dashed border-indigo-200 rounded-lg p-8 text-center">
-            <p className="text-indigo-700">Image upload functionality will be implemented here</p>
-            <p className="text-sm text-indigo-600 mt-2">Logo and banner image management coming soon</p>
-          </div>
+          {isEditing ? (
+            <div className="grid gap-6 md:grid-cols-2">
+              <ImageUpload
+                value={formData.logo}
+                onChange={(url) => setFormData(prev => ({ ...prev, logo: url }))}
+                type="organization"
+                label="Movement Logo"
+                aspectRatio="square"
+              />
+
+              <ImageUpload
+                value={formData.banner}
+                onChange={(url) => setFormData(prev => ({ ...prev, banner: url }))}
+                type="organization"
+                label="Movement Banner"
+                aspectRatio="banner"
+              />
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2">
+              <div>
+                <Label className="text-sm text-gray-600 mb-2 block">Logo</Label>
+                {movement.logo ? (
+                  <img
+                    src={movement.logo}
+                    alt={`${movement.name} logo`}
+                    className="w-32 h-32 rounded-lg object-cover border"
+                  />
+                ) : (
+                  <div className="w-32 h-32 rounded-lg bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center">
+                    <span className="text-gray-400 text-sm">No logo</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <Label className="text-sm text-gray-600 mb-2 block">Banner</Label>
+                {movement.banner ? (
+                  <img
+                    src={movement.banner}
+                    alt={`${movement.name} banner`}
+                    className="w-full h-32 rounded-lg object-cover border"
+                  />
+                ) : (
+                  <div className="w-full h-32 rounded-lg bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center">
+                    <span className="text-gray-400 text-sm">No banner</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

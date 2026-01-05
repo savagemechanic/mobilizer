@@ -2,6 +2,7 @@ import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrgInput } from './dto/create-org.input';
+import { UpdateOrgInput } from './dto/update-org.input';
 import { OrganizationFilterInput } from './dto/org-filter.input';
 import { MakeLeaderInput } from './dto/make-leader.input';
 import { OrganizationEntity, OrgMembershipEntity, OrganizationsForSelector } from './entities/organization.entity';
@@ -65,6 +66,16 @@ export class OrganizationsResolver {
     @Args('input') input: CreateOrgInput,
   ) {
     return this.organizationsService.create(user.id, input);
+  }
+
+  @Mutation(() => OrganizationEntity)
+  @UseGuards(GqlAuthGuard)
+  async updateOrganization(
+    @CurrentUser() user: any,
+    @Args('id') id: string,
+    @Args('input') input: UpdateOrgInput,
+  ) {
+    return this.organizationsService.update(id, input, user.id);
   }
 
   @Mutation(() => OrgMembershipEntity)

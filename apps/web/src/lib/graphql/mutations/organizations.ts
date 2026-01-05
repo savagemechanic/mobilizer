@@ -133,3 +133,40 @@ export const REMOVE_LEADER = gql`
     }
   }
 `
+
+export const UPDATE_ORGANIZATION = gql`
+  mutation UpdateOrganization($id: String!, $input: UpdateOrgInput!) {
+    updateOrganization(id: $id, input: $input) {
+      id
+      name
+      slug
+      description
+      level
+      logo
+      banner
+      memberCount
+      isActive
+      country {
+        id
+        name
+      }
+      state {
+        id
+        name
+      }
+      lga {
+        id
+        name
+      }
+      ward {
+        id
+        name
+      }
+      pollingUnit {
+        id
+        name
+      }
+      updatedAt
+    }
+  }
+`
