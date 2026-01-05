@@ -172,19 +172,19 @@ export default function UserProfileScreen() {
 
           {user.bio && <Text style={styles.userBio}>{user.bio}</Text>}
 
-          {/* Location */}
+          {/* Location - cascading style like own profile: State > LGA > Ward > Polling Unit */}
           {user.location && (
             <View style={styles.locationContainer}>
               <Ionicons name="location-outline" size={16} color="#666" />
               <Text style={styles.locationText}>
                 {[
-                  user.location.pollingUnit?.name,
-                  user.location.ward?.name,
-                  user.location.lga?.name,
                   user.location.state?.name,
+                  user.location.lga?.name,
+                  user.location.ward?.name,
+                  user.location.pollingUnit?.name,
                 ]
                   .filter(Boolean)
-                  .join(', ')}
+                  .join(' > ')}
               </Text>
             </View>
           )}

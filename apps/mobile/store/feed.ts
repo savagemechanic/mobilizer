@@ -27,6 +27,10 @@ interface FeedState {
   currentViewingOrg: Organization | null;
   currentViewType: FeedViewType;
   currentLocationLevel: LocationLevel | null;
+  // Track last location level per organization (orgId -> locationLevel)
+  lastLocationPerOrg: Record<string, LocationLevel>;
+  // Track which organizations user has visited (for defaulting to LGA on first visit)
+  visitedOrgs: Set<string>;
 
   // Actions
   setPosts: (posts: Post[]) => void;
@@ -45,6 +49,11 @@ interface FeedState {
   setCurrentViewType: (type: FeedViewType) => void;
   setCurrentLocationLevel: (level: LocationLevel | null) => void;
   setFeedContext: (org: Organization | null, viewType: FeedViewType, locationLevel?: LocationLevel | null) => void;
+  // New: save/get last location for an organization
+  saveLastLocationForOrg: (orgId: string, level: LocationLevel) => void;
+  getLastLocationForOrg: (orgId: string) => LocationLevel | null;
+  markOrgAsVisited: (orgId: string) => void;
+  hasVisitedOrg: (orgId: string) => boolean;
 
   // Optimistic updates
   optimisticLike: (postId: string, isLiked: boolean) => void;
@@ -67,6 +76,8 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   currentViewingOrg: null,
   currentViewType: 'all' as FeedViewType,
   currentLocationLevel: null,
+  lastLocationPerOrg: {},
+  visitedOrgs: new Set<string>(),
 
   // Set posts (replace all)
   setPosts: (posts: Post[]) => {
@@ -171,6 +182,32 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       // Only update currentLocationLevel if explicitly provided, otherwise keep existing
       currentLocationLevel: locationLevel !== undefined ? locationLevel : state.currentLocationLevel,
     }));
+  },
+
+  // Save last location for an organization
+  saveLastLocationForOrg: (orgId: string, level: LocationLevel) => {
+    set((state) => ({
+      lastLocationPerOrg: { ...state.lastLocationPerOrg, [orgId]: level },
+    }));
+  },
+
+  // Get last location for an organization
+  getLastLocationForOrg: (orgId: string) => {
+    return get().lastLocationPerOrg[orgId] || null;
+  },
+
+  // Mark organization as visited
+  markOrgAsVisited: (orgId: string) => {
+    set((state) => {
+      const newVisitedOrgs = new Set(state.visitedOrgs);
+      newVisitedOrgs.add(orgId);
+      return { visitedOrgs: newVisitedOrgs };
+    });
+  },
+
+  // Check if user has visited an organization before
+  hasVisitedOrg: (orgId: string) => {
+    return get().visitedOrgs.has(orgId);
   },
 
   // Optimistic like update

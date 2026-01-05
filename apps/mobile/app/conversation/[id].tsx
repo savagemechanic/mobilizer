@@ -94,11 +94,31 @@ export default function ConversationScreen() {
   });
 
   const [sendMessage, { loading: sending }] = useMutation(SEND_MESSAGE, {
-    onCompleted: (data) => {
-      // Remove optimistic message and add real one
+    // Update cache directly instead of refetching for faster UX
+    update: (cache, { data }) => {
+      if (data?.sendMessage) {
+        // Read the current messages from cache
+        const existingData = cache.readQuery({
+          query: GET_MESSAGES,
+          variables: { conversationId: id, limit: 50, offset: 0 },
+        }) as { messages: Message[] } | null;
+
+        if (existingData) {
+          // Add the new message to the beginning of the list
+          cache.writeQuery({
+            query: GET_MESSAGES,
+            variables: { conversationId: id, limit: 50, offset: 0 },
+            data: {
+              messages: [data.sendMessage, ...existingData.messages],
+            },
+          });
+        }
+      }
+    },
+    onCompleted: () => {
+      // Remove optimistic message (cache update handles adding real one)
       setOptimisticMessages([]);
       setMessageText('');
-      refetch();
       setTimeout(() => {
         flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }, 100);

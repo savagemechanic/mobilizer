@@ -105,6 +105,10 @@ export default function JoinOrganizationScreen() {
           `You are now a member of ${org?.name || 'the organization'}!`,
           [
             {
+              text: 'Go to Group',
+              onPress: () => router.replace('/(tabs)'),
+            },
+            {
               text: 'View Organization',
               onPress: () => router.replace(`/organization/${org?.slug}`),
             },

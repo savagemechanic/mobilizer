@@ -109,8 +109,8 @@ export default function LocationCircles({
                       height: size,
                       borderRadius: size / 2,
                       borderColor: isActive ? color : '#E0E0E0',
-                      borderWidth: isActive ? 3 : circle.hasNewPosts ? 2 : 1,
-                      backgroundColor: isActive ? `${color}15` : '#F9F9F9',
+                      borderWidth: isActive ? 4 : circle.hasNewPosts ? 2 : 1,
+                      backgroundColor: isActive ? `${color}20` : '#F9F9F9',
                       overflow: 'hidden',
                     },
                   ]}
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   },
   // Name label - below circle, bold, uppercase
   nameLabel: {
-    fontSize: 11,
+    fontSize: 13,
     color: '#333',
     fontWeight: '700',
     textAlign: 'center',
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   },
   // Level label - at bottom, title case, not bold
   levelLabel: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#666',
     marginTop: 2,
     fontWeight: '400',

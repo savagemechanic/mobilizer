@@ -167,15 +167,16 @@ export default function PostDetailScreen() {
       const { data: repostData } = await getRepostText({ variables: { postId: post.id } });
       const repostText = repostData?.postRepostText || `"${post.content?.substring(0, 200)}${(post.content?.length || 0) > 200 ? '...' : ''}"`;
 
-      // Track the repost on the backend
-      await sharePostMutation({
-        variables: { postId: post.id, platform: 'internal' },
-      });
-
+      // Navigate immediately - don't wait for tracking mutation
       router.push({
         pathname: '/(modals)/create-post',
         params: { repostText },
       });
+
+      // Track the repost on the backend (fire and forget)
+      sharePostMutation({
+        variables: { postId: post.id, platform: 'internal' },
+      }).catch((error) => console.error('Failed to track repost:', error));
     } catch (error) {
       console.error('Error getting repost text:', error);
       // Fallback to basic repost text

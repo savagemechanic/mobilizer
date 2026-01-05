@@ -94,17 +94,18 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="search"
+        options={{
+          title: 'Search',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="search-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="messages"
         options={{
-          title: 'Messages',
-          tabBarIcon: ({ color, size }) => (
-            <TabIconWithBadge
-              name="chatbubble-outline"
-              size={size}
-              color={color}
-              badgeCount={totalUnreadCount || counts.messages}
-            />
-          ),
+          href: null, // Hide from tabs - messages icon is in feed header
         }}
       />
       <Tabs.Screen

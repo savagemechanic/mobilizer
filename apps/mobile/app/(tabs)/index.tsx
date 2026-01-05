@@ -53,6 +53,10 @@ export default function FeedScreen() {
     optimisticVote,
     optimisticRepost,
     optimisticShare,
+    saveLastLocationForOrg,
+    getLastLocationForOrg,
+    markOrgAsVisited,
+    hasVisitedOrg,
   } = useFeedStore();
 
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
@@ -120,18 +124,11 @@ export default function FeedScreen() {
     return circles;
   }, [user]);
 
-  // Auto-set to most specific location level on mount
+  // Auto-set to LGA location level on mount (default to LGA, not polling unit)
   useEffect(() => {
     if (!hasInitializedFilter && user?.location) {
-      if (user.location.pollingUnit) {
-        setLocationFilter({ pollingUnitId: user.location.pollingUnit.id });
-        setCurrentLocationLevel('POLLING_UNIT');
-        setActiveLevel('POLLING_UNIT');
-      } else if (user.location.ward) {
-        setLocationFilter({ wardId: user.location.ward.id });
-        setCurrentLocationLevel('WARD');
-        setActiveLevel('WARD');
-      } else if (user.location.lga) {
+      // Default to LGA level, not most specific
+      if (user.location.lga) {
         setLocationFilter({ lgaId: user.location.lga.id });
         setCurrentLocationLevel('LGA');
         setActiveLevel('LGA');
@@ -139,6 +136,14 @@ export default function FeedScreen() {
         setLocationFilter({ stateId: user.location.state.id });
         setCurrentLocationLevel('STATE');
         setActiveLevel('STATE');
+      } else if (user.location.ward) {
+        setLocationFilter({ wardId: user.location.ward.id });
+        setCurrentLocationLevel('WARD');
+        setActiveLevel('WARD');
+      } else if (user.location.pollingUnit) {
+        setLocationFilter({ pollingUnitId: user.location.pollingUnit.id });
+        setCurrentLocationLevel('POLLING_UNIT');
+        setActiveLevel('POLLING_UNIT');
       }
       setHasInitializedFilter(true);
     }
@@ -292,19 +297,20 @@ export default function FeedScreen() {
         // Optimistic update for repost counter
         optimisticRepost(postId);
 
+        // Fetch repost text - this is the only blocking request
         const { data } = await getRepostText({ variables: { postId } });
         const repostText = data?.postRepostText || '';
 
-        // Track the repost on the backend
-        await sharePostMutation({
-          variables: { postId, platform: 'internal' },
-        });
-
-        // Navigate to create post with the repost text
+        // Navigate immediately - don't wait for tracking mutation
         router.push({
           pathname: '/(modals)/create-post',
           params: { repostText },
         });
+
+        // Track the repost on the backend (fire and forget)
+        sharePostMutation({
+          variables: { postId, platform: 'internal' },
+        }).catch((error) => console.error('Failed to track repost:', error));
       } catch (error) {
         console.error('Failed to get repost text:', error);
       }
@@ -371,18 +377,94 @@ export default function FeedScreen() {
   };
 
   // Handle organization selector
-  const handleOrgSelect = useCallback((org: any, type: 'org' | 'all' | 'public') => {
+  const handleOrgSelect = useCallback(async (org: any, type: 'org' | 'all' | 'public') => {
+    // Save current location for the old organization before switching
+    if (selectedOrg?.id && activeLevel) {
+      saveLastLocationForOrg(selectedOrg.id, activeLevel as any);
+    }
+
     setSelectedOrg(org);
     setSelectedType(type);
 
     // Update feed store so create-post can read the current org
     setFeedContext(org, type);
 
+    // Determine which location level to show for the new org
+    let targetLevel: OrgLevel | undefined = undefined;
+    let targetFilter: LocationFilter | null = null;
+
+    if (org?.id) {
+      // Check if user has visited this org before
+      if (hasVisitedOrg(org.id)) {
+        // Restore last location
+        const lastLocation = getLastLocationForOrg(org.id);
+        if (lastLocation) {
+          targetLevel = lastLocation as OrgLevel;
+        }
+      } else {
+        // First time visiting - default to LGA
+        markOrgAsVisited(org.id);
+        if (user?.location?.lga) {
+          targetLevel = 'LGA';
+        } else if (user?.location?.state) {
+          targetLevel = 'STATE';
+        }
+      }
+
+      // Build location filter based on target level
+      if (targetLevel && user?.location) {
+        targetFilter = {};
+        switch (targetLevel) {
+          case 'COUNTRY':
+            if (user.location.country) targetFilter.countryId = user.location.country.id;
+            break;
+          case 'STATE':
+            if (user.location.state) targetFilter.stateId = user.location.state.id;
+            break;
+          case 'LGA':
+            if (user.location.lga) targetFilter.lgaId = user.location.lga.id;
+            break;
+          case 'WARD':
+            if (user.location.ward) targetFilter.wardId = user.location.ward.id;
+            break;
+          case 'POLLING_UNIT':
+            if (user.location.pollingUnit) targetFilter.pollingUnitId = user.location.pollingUnit.id;
+            break;
+        }
+      }
+    }
+
+    // Update active level and location filter
+    setActiveLevel(targetLevel);
+    setCurrentLocationLevel(targetLevel || null);
+    setLocationFilter(targetFilter);
+
     // Reset and refetch feed with new filter
     setLoading(true);
     resetFeed();
+
+    // Refetch with the new filter (need to build it here since state hasn't updated yet)
+    const newFilter: Record<string, string> = {};
+    if (targetFilter?.countryId) newFilter.countryId = targetFilter.countryId;
+    if (targetFilter?.stateId) newFilter.stateId = targetFilter.stateId;
+    if (targetFilter?.lgaId) newFilter.lgaId = targetFilter.lgaId;
+    if (targetFilter?.wardId) newFilter.wardId = targetFilter.wardId;
+    if (targetFilter?.pollingUnitId) newFilter.pollingUnitId = targetFilter.pollingUnitId;
+    if (org?.id) newFilter.orgId = org.id;
+
+    try {
+      await refetch({
+        limit,
+        offset: 0,
+        filter: Object.keys(newFilter).length > 0 ? newFilter : null
+      });
+    } catch (error) {
+      console.error('Error refetching feed after org change:', error);
+    }
     setLoading(false);
-  }, [resetFeed, setLoading, setFeedContext]);
+  }, [selectedOrg, activeLevel, user, limit, refetch, resetFeed, setLoading, setFeedContext,
+      setLocationFilter, setCurrentLocationLevel, saveLastLocationForOrg, getLastLocationForOrg,
+      markOrgAsVisited, hasVisitedOrg]);
 
   // Handle location circle press (first tap - toggle selection)
   const handleLocationCirclePress = useCallback(async (circle: any) => {
@@ -394,6 +476,11 @@ export default function FeedScreen() {
 
     // Update current location level in store so create-post can read it
     setCurrentLocationLevel(newActiveLevel || null);
+
+    // Save this location for the current org
+    if (selectedOrg?.id && newActiveLevel) {
+      saveLastLocationForOrg(selectedOrg.id, newActiveLevel as any);
+    }
 
     // Build location filter based on selected level
     let filter: LocationFilter | null = null;
@@ -428,8 +515,28 @@ export default function FeedScreen() {
     // Reset and refetch feed with new filter
     setLoading(true);
     resetFeed();
+
+    // Build new filter with org included
+    const newFilter: Record<string, string> = {};
+    if (filter?.countryId) newFilter.countryId = filter.countryId;
+    if (filter?.stateId) newFilter.stateId = filter.stateId;
+    if (filter?.lgaId) newFilter.lgaId = filter.lgaId;
+    if (filter?.wardId) newFilter.wardId = filter.wardId;
+    if (filter?.pollingUnitId) newFilter.pollingUnitId = filter.pollingUnitId;
+    if (selectedOrg?.id) newFilter.orgId = selectedOrg.id;
+
+    try {
+      await refetch({
+        limit,
+        offset: 0,
+        filter: Object.keys(newFilter).length > 0 ? newFilter : null
+      });
+    } catch (error) {
+      console.error('Error refetching feed after location change:', error);
+    }
     setLoading(false);
-  }, [activeLevel, setLocationFilter, setCurrentLocationLevel, resetFeed, setLoading]);
+  }, [activeLevel, selectedOrg, limit, refetch, setLocationFilter, setCurrentLocationLevel,
+      resetFeed, setLoading, saveLastLocationForOrg]);
 
   // Handle location info press (second tap on already active location)
   const handleLocationInfoPress = useCallback((circle: any) => {
@@ -547,10 +654,10 @@ export default function FeedScreen() {
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={styles.headerButton}
-            onPress={() => router.push('/search')}
+            onPress={() => router.push('/(tabs)/messages')}
             activeOpacity={0.7}
           >
-            <Ionicons name="search-outline" size={24} color="#007AFF" />
+            <Ionicons name="mail-outline" size={24} color="#007AFF" />
           </TouchableOpacity>
         </View>
       </View>

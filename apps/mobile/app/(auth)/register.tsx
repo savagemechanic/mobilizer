@@ -34,7 +34,7 @@ const registerSchema = z.object({
     .min(3, 'Username must be at least 3 characters')
     .max(30, 'Username must be at most 30 characters')
     .regex(/^[a-z0-9_]+$/, 'Only lowercase letters, numbers, and underscores'),
-  profession: z.string().optional(),
+  profession: z.string().min(1, 'Profession is required'),
   phoneNumber: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -171,7 +171,7 @@ export default function RegisterScreen() {
 
           <View style={styles.form}>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>First Name</Text>
+              <Text style={styles.label}>First Name <Text style={styles.requiredAsterisk}>*</Text></Text>
               <Controller
                 control={control}
                 name="firstName"
@@ -194,7 +194,7 @@ export default function RegisterScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Last Name</Text>
+              <Text style={styles.label}>Last Name <Text style={styles.requiredAsterisk}>*</Text></Text>
               <Controller
                 control={control}
                 name="lastName"
@@ -226,7 +226,7 @@ export default function RegisterScreen() {
                     <Text style={styles.usernamePrefix}>@</Text>
                     <TextInput
                       style={[styles.input, styles.usernameInput, errors.username && styles.inputError]}
-                      placeholder="your_username"
+                      placeholder="username"
                       placeholderTextColor="#999"
                       autoCapitalize="none"
                       autoCorrect={false}
@@ -245,12 +245,12 @@ export default function RegisterScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Profession (Optional)</Text>
+              <Text style={styles.label}>Profession <Text style={styles.requiredAsterisk}>*</Text></Text>
               <Controller
                 control={control}
                 name="profession"
                 render={({ field: { onChange, value } }) => (
-                  <View style={styles.pickerContainer}>
+                  <View style={[styles.pickerContainer, errors.profession && styles.pickerError]}>
                     <Picker
                       selectedValue={value}
                       onValueChange={onChange}
@@ -266,10 +266,13 @@ export default function RegisterScreen() {
                   </View>
                 )}
               />
+              {errors.profession && (
+                <Text style={styles.errorText}>{errors.profession.message}</Text>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>Email <Text style={styles.requiredAsterisk}>*</Text></Text>
               <Controller
                 control={control}
                 name="email"
@@ -325,7 +328,7 @@ export default function RegisterScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Password</Text>
+              <Text style={styles.label}>Password <Text style={styles.requiredAsterisk}>*</Text></Text>
               <Controller
                 control={control}
                 name="password"
@@ -361,7 +364,7 @@ export default function RegisterScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Confirm Password</Text>
+              <Text style={styles.label}>Confirm Password <Text style={styles.requiredAsterisk}>*</Text></Text>
               <Controller
                 control={control}
                 name="confirmPassword"
@@ -574,6 +577,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#F9F9F9',
     overflow: 'hidden',
+  },
+  pickerError: {
+    borderColor: '#FF3B30',
   },
   picker: {
     height: Platform.OS === 'ios' ? 150 : 50,

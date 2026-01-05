@@ -52,8 +52,8 @@ export default function LocationPicker({
   const isInitialLoad = useRef(true);
   const hasInitialized = useRef(false);
 
-  // Input mode toggle
-  const [inputMode, setInputMode] = useState<InputMode>('pvc');
+  // Input mode toggle - default to dropdown (Select Manually)
+  const [inputMode, setInputMode] = useState<InputMode>('dropdown');
 
   // Code input state
   const [locationCode, setLocationCode] = useState('');
@@ -278,8 +278,17 @@ export default function LocationPicker({
 
   return (
     <View style={styles.container}>
-      {/* Mode Toggle */}
+      {/* Mode Toggle - Select Manually first, Use PVC Code second */}
       <View style={styles.modeToggle}>
+        <TouchableOpacity
+          style={[styles.modeButton, inputMode === 'dropdown' && styles.modeButtonActive]}
+          onPress={() => setInputMode('dropdown')}
+          disabled={disabled}
+        >
+          <Text style={[styles.modeButtonText, inputMode === 'dropdown' && styles.modeButtonTextActive]}>
+            Select Manually
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.modeButton, inputMode === 'pvc' && styles.modeButtonActive]}
           onPress={() => setInputMode('pvc')}
@@ -289,21 +298,25 @@ export default function LocationPicker({
             Use PVC Code
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.modeButton, inputMode === 'dropdown' && styles.modeButtonActive]}
-          onPress={() => setInputMode('dropdown')}
-          disabled={disabled}
-        >
-          <Text style={[styles.modeButtonText, inputMode === 'dropdown' && styles.modeButtonTextActive]}>
-            Use Dropdowns
-          </Text>
-        </TouchableOpacity>
       </View>
 
       {/* PVC Code Mode */}
       {inputMode === 'pvc' && (
         <View style={styles.codeSection}>
+          {/* PVC Instruction Image Placeholder - now on top */}
+          <View style={styles.pvcImageContainer}>
+            <View style={styles.pvcImagePlaceholder}>
+              <Text style={styles.pvcPlaceholderText}>PVC Code Location</Text>
+              <Text style={styles.pvcPlaceholderSubtext}>
+                Find this code on your{'\n'}Permanent Voter's Card
+              </Text>
+              <View style={styles.pvcCodeHighlight}>
+                <Text style={styles.pvcCodeExample}>XX-XX-XX-XXX</Text>
+              </View>
+            </View>
+          </View>
 
+          {/* Code input and lookup button - now below image */}
           <View style={styles.codeInputRow}>
             <TextInput
               style={[
@@ -335,27 +348,11 @@ export default function LocationPicker({
           </View>
 
           {codeError && <Text style={styles.errorText}>{codeError}</Text>}
-          {isCodeLookupSuccess && (
-            <Text style={styles.successText}>Location found!</Text>
-          )}
-
-          {/* PVC Instruction Image Placeholder */}
-          <View style={styles.pvcImageContainer}>
-            <View style={styles.pvcImagePlaceholder}>
-              <Text style={styles.pvcPlaceholderText}>PVC Code Location</Text>
-              <Text style={styles.pvcPlaceholderSubtext}>
-                Find this code on your{'\n'}Permanent Voter's Card
-              </Text>
-              <View style={styles.pvcCodeHighlight}>
-                <Text style={styles.pvcCodeExample}>XX-XX-XX-XXX</Text>
-              </View>
-            </View>
-          </View>
 
           {/* Show populated dropdowns after successful lookup */}
           {isCodeLookupSuccess && (
             <View style={styles.foundLocationSection}>
-              <Text style={styles.foundLocationTitle}>Selected Location</Text>
+              <Text style={styles.foundLocationTitleSuccess}>Location Found!</Text>
 
               {/* State Picker */}
               <View style={styles.inputGroup}>
@@ -700,7 +697,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   pvcImageContainer: {
-    marginTop: 16,
+    marginBottom: 16,
   },
   pvcImagePlaceholder: {
     backgroundColor: '#E8EDF3',
@@ -747,6 +744,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#333',
+    marginBottom: 12,
+  },
+  foundLocationTitleSuccess: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#34C759',
     marginBottom: 12,
   },
   dropdownSection: {
