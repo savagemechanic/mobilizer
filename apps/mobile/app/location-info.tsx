@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@apollo/client';
 import { Avatar } from '@/components/ui';
-import { GET_LOCATION_LEADERS } from '@/lib/graphql/queries/locations';
+import { GET_LOCATION_LEADERS, GET_LOCATION_STATS } from '@/lib/graphql/queries/locations';
 
 const LEVEL_LABELS: Record<string, string> = {
   POLLING_UNIT: 'Polling Unit',
@@ -51,7 +51,17 @@ export default function LocationInfoScreen() {
     skip: !id || !level,
   });
 
+  // Query for location stats
+  const { data: statsData, loading: statsLoading } = useQuery(GET_LOCATION_STATS, {
+    variables: {
+      locationId: id,
+      locationType: level,
+    },
+    skip: !id || !level,
+  });
+
   const leaders: Leader[] = data?.locationLeaders || [];
+  const stats = statsData?.locationStats || { memberCount: 0, postCount: 0, eventCount: 0 };
 
   const getLeaderName = (leader: Leader) => {
     return leader.displayName || `${leader.firstName} ${leader.lastName}`.trim();
@@ -131,23 +141,30 @@ export default function LocationInfoScreen() {
           )}
         </View>
 
-        {/* Stats Section - Placeholder for future */}
+        {/* Stats Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Statistics</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>-</Text>
-              <Text style={styles.statLabel}>Members</Text>
+          {statsLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#007AFF" />
+              <Text style={styles.loadingText}>Loading stats...</Text>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>-</Text>
-              <Text style={styles.statLabel}>Posts</Text>
+          ) : (
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{stats.memberCount.toLocaleString()}</Text>
+                <Text style={styles.statLabel}>Members</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{stats.postCount.toLocaleString()}</Text>
+                <Text style={styles.statLabel}>Posts</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{stats.eventCount.toLocaleString()}</Text>
+                <Text style={styles.statLabel}>Events</Text>
+              </View>
             </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>-</Text>
-              <Text style={styles.statLabel}>Events</Text>
-            </View>
-          </View>
+          )}
         </View>
       </ScrollView>
     </View>

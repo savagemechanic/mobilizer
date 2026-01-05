@@ -8,6 +8,7 @@ import {
   PollingUnit,
   LocationLookupResult,
   LocationLeader,
+  LocationStats,
 } from './entities/location.entity';
 
 @Resolver()
@@ -113,5 +114,17 @@ export class LocationsResolver {
     @Args('locationType', { type: () => String }) locationType: string,
   ) {
     return this.locationsService.getLocationLeaders(locationId, locationType);
+  }
+
+  // ============================================
+  // LOCATION STATS
+  // ============================================
+
+  @Query(() => LocationStats, { name: 'locationStats' })
+  async locationStats(
+    @Args('locationId', { type: () => String }) locationId: string,
+    @Args('locationType', { type: () => String }) locationType: string,
+  ) {
+    return this.locationsService.getLocationStats(locationId, locationType);
   }
 }

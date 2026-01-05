@@ -35,7 +35,7 @@ const LEVEL_LABELS: Record<string, string> = {
 };
 
 interface LocationOption {
-  level: 'COUNTRY' | 'STATE' | 'LGA' | 'WARD' | 'POLLING_UNIT';
+  level: 'GLOBAL' | 'COUNTRY' | 'STATE' | 'LGA' | 'WARD' | 'POLLING_UNIT';
   label: string;
   name: string;
 }
@@ -82,10 +82,26 @@ export default function CreatePostModal() {
   const authorName =
     user?.displayName || `${user?.firstName} ${user?.lastName}`.trim() || 'You';
 
-  // Build location options from user's registered location
+  // Build location options from user's registered location (including Country)
   const locationOptions = useMemo(() => {
     const options: LocationOption[] = [];
     const loc = user?.location;
+
+    // Add Country level first (always available if user has any location)
+    if (loc?.country) {
+      options.push({
+        level: 'COUNTRY',
+        label: `Country - ${loc.country.name}`,
+        name: loc.country.name,
+      });
+    } else if (loc?.state) {
+      // Fallback: use Nigeria as default country if state exists
+      options.push({
+        level: 'COUNTRY',
+        label: 'Country - Nigeria',
+        name: 'Nigeria',
+      });
+    }
 
     if (loc?.state) {
       options.push({

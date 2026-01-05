@@ -235,3 +235,16 @@ export const GET_LOCATION_LEADERS = gql`
     }
   }
 `;
+
+/**
+ * Query to fetch statistics for a specific location
+ */
+export const GET_LOCATION_STATS = gql`
+  query GetLocationStats($locationId: String!, $locationType: String!) {
+    locationStats(locationId: $locationId, locationType: $locationType) {
+      memberCount
+      postCount
+      eventCount
+    }
+  }
+`;

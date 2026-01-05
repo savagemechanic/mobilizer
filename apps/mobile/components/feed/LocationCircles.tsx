@@ -88,17 +88,6 @@ export default function LocationCircles({
               style={styles.circleContainer}
               onPress={() => handleCirclePress(circle)}
             >
-              {/* Info icon on top - only visible when active */}
-              <View style={styles.infoIconContainer}>
-                {isActive && (
-                  <Ionicons
-                    name="information-circle"
-                    size={18}
-                    color={color}
-                  />
-                )}
-              </View>
-
               {/* Circle */}
               <View style={styles.circleWrapper}>
                 <View
@@ -109,9 +98,9 @@ export default function LocationCircles({
                       height: size,
                       borderRadius: size / 2,
                       borderColor: isActive ? color : '#E0E0E0',
-                      borderWidth: isActive ? 4 : circle.hasNewPosts ? 2 : 1,
+                      borderWidth: isActive ? 5 : circle.hasNewPosts ? 2 : 1,
                       backgroundColor: isActive ? `${color}20` : '#F9F9F9',
-                      overflow: 'hidden',
+                      overflow: 'visible',
                     },
                   ]}
                 >
@@ -131,6 +120,17 @@ export default function LocationCircles({
                       size={size * 0.4}
                       color={isActive ? color : '#666'}
                     />
+                  )}
+
+                  {/* Info icon badge - attached to top-right of circle */}
+                  {isActive && (
+                    <View style={styles.infoIconBadge}>
+                      <Ionicons
+                        name="information-circle"
+                        size={20}
+                        color={color}
+                      />
+                    </View>
                   )}
                   {circle.hasNewPosts && !isActive && (
                     <View
@@ -181,22 +181,25 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 12,
-    gap: 16,
+    gap: 8,
     alignItems: 'flex-start',
   },
   circleContainer: {
     alignItems: 'center',
-    width: 95,
-  },
-  infoIconContainer: {
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 80,
   },
   circleWrapper: {
     height: 90,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  infoIconBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#FFF',
+    borderRadius: 10,
+    padding: 0,
   },
   circle: {
     justifyContent: 'center',

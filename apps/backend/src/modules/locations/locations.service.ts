@@ -359,4 +359,61 @@ export class LocationsService {
       role: `${admin.organization.name} Admin`,
     }));
   }
+
+  // ============================================
+  // LOCATION STATS
+  // ============================================
+
+  /**
+   * Get statistics for a specific location
+   * Returns member count, post count, and event count
+   */
+  async getLocationStats(locationId: string, locationType: string) {
+    // Build the location filter based on location type
+    const userLocationFilter: Record<string, string> = {};
+    const postLocationFilter: Record<string, string> = {};
+    const eventLocationFilter: Record<string, string> = {};
+
+    switch (locationType) {
+      case 'STATE':
+        userLocationFilter.stateId = locationId;
+        postLocationFilter.stateId = locationId;
+        eventLocationFilter.stateId = locationId;
+        break;
+      case 'LGA':
+        userLocationFilter.lgaId = locationId;
+        postLocationFilter.lgaId = locationId;
+        eventLocationFilter.lgaId = locationId;
+        break;
+      case 'WARD':
+        userLocationFilter.wardId = locationId;
+        postLocationFilter.wardId = locationId;
+        eventLocationFilter.wardId = locationId;
+        break;
+      case 'POLLING_UNIT':
+        userLocationFilter.pollingUnitId = locationId;
+        postLocationFilter.pollingUnitId = locationId;
+        eventLocationFilter.pollingUnitId = locationId;
+        break;
+      default:
+        return { memberCount: 0, postCount: 0, eventCount: 0 };
+    }
+
+    // Count users at this location
+    const memberCount = await this.prisma.user.count({
+      where: userLocationFilter,
+    });
+
+    // Count posts at this location
+    const postCount = await this.prisma.post.count({
+      where: postLocationFilter,
+    });
+
+    // Count events at this location
+    const eventCount = await this.prisma.event.count({
+      where: eventLocationFilter,
+    });
+
+    return { memberCount, postCount, eventCount };
+  }
 }

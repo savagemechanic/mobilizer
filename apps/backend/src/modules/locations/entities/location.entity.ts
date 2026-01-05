@@ -140,3 +140,15 @@ export class LocationLeader {
   @Field({ nullable: true })
   role?: string;
 }
+
+@ObjectType()
+export class LocationStats {
+  @Field()
+  memberCount: number;
+
+  @Field()
+  postCount: number;
+
+  @Field()
+  eventCount: number;
+}
