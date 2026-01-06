@@ -35,7 +35,7 @@ const registerSchema = z.object({
     .max(30, 'Username must be at most 30 characters')
     .regex(/^[a-z0-9_]+$/, 'Only lowercase letters, numbers, and underscores'),
   profession: z.string().min(1, 'Profession is required'),
-  phoneNumber: z.string().optional(),
+  phoneNumber: z.string().min(10, 'Phone number must be at least 10 digits'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -107,10 +107,10 @@ export default function RegisterScreen() {
         firstName: data.firstName,
         lastName: data.lastName,
         username: data.username.toLowerCase(),
+        phoneNumber: data.phoneNumber,
       };
 
       // Add optional fields
-      if (data.phoneNumber) input.phoneNumber = data.phoneNumber;
       if (data.profession) input.profession = data.profession;
 
       // Add location fields (all required)
@@ -297,13 +297,13 @@ export default function RegisterScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Phone (Optional)</Text>
+              <Text style={styles.label}>Phone <Text style={styles.requiredAsterisk}>*</Text></Text>
               <Controller
                 control={control}
                 name="phoneNumber"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, errors.phoneNumber && styles.inputError]}
                     placeholder="Enter your phone number"
                     placeholderTextColor="#999"
                     keyboardType="phone-pad"
@@ -315,6 +315,9 @@ export default function RegisterScreen() {
                   />
                 )}
               />
+              {errors.phoneNumber && (
+                <Text style={styles.errorText}>{errors.phoneNumber.message}</Text>
+              )}
             </View>
 
             {/* Location Selection */}

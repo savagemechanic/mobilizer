@@ -406,7 +406,7 @@ export default function EditProfileScreen() {
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Location</Text>
           <LocationPicker
-            value={initialLocation}
+            value={location}
             onChange={handleLocationChange}
             disabled={loading}
           />

@@ -22,6 +22,40 @@ const LEVEL_LABELS: Record<string, string> = {
   COUNTRY: 'Country',
 };
 
+// Colors for leader role badges
+const ROLE_COLORS: Record<string, string> = {
+  CHAIRMAN: '#FF6B6B',
+  LEADER: '#4ECDC4',
+  WARD_LEADER: '#45B7D1',
+  LGA_LEADER: '#FFA07A',
+  STATE_LEADER: '#98D8C8',
+  POLLING_UNIT_LEADER: '#DDA0DD',
+};
+
+const getRoleBadgeColor = (role?: string, leaderLevel?: string): string => {
+  if (role?.toUpperCase().includes('CHAIRMAN')) return ROLE_COLORS.CHAIRMAN;
+  if (leaderLevel) {
+    const levelKey = `${leaderLevel.toUpperCase()}_LEADER`;
+    return ROLE_COLORS[levelKey] || ROLE_COLORS.LEADER;
+  }
+  return ROLE_COLORS.LEADER;
+};
+
+const formatRoleLabel = (role?: string, leaderLevel?: string): string => {
+  if (role) return role;
+  if (leaderLevel) {
+    const levelLabels: Record<string, string> = {
+      POLLING_UNIT: 'PU Leader',
+      WARD: 'Ward Leader',
+      LGA: 'LGA Leader',
+      STATE: 'State Leader',
+      COUNTRY: 'National Leader',
+    };
+    return levelLabels[leaderLevel] || 'Leader';
+  }
+  return 'Leader';
+};
+
 interface Leader {
   id: string;
   firstName: string;
@@ -29,6 +63,7 @@ interface Leader {
   displayName?: string;
   avatar?: string;
   role?: string;
+  leaderLevel?: string;
 }
 
 export default function LocationInfoScreen() {
@@ -38,9 +73,35 @@ export default function LocationInfoScreen() {
     id: string;
     level: string;
     name: string;
+    orgName?: string;
+    stateName?: string;
+    lgaName?: string;
+    wardName?: string;
   }>();
 
-  const { id, level, name } = params;
+  const { id, level, name, orgName, stateName, lgaName, wardName } = params;
+
+  // Build location hierarchy string (e.g., "in ABIA > Aba South LGA")
+  const getLocationHierarchy = () => {
+    const parts: string[] = [];
+
+    // For each level, show the parent levels
+    if (level === 'POLLING_UNIT') {
+      if (wardName) parts.push(wardName);
+      if (lgaName) parts.push(`${lgaName} LGA`);
+      if (stateName) parts.push(stateName);
+    } else if (level === 'WARD') {
+      if (lgaName) parts.push(`${lgaName} LGA`);
+      if (stateName) parts.push(stateName);
+    } else if (level === 'LGA') {
+      if (stateName) parts.push(stateName);
+    }
+    // STATE and COUNTRY don't need hierarchy
+
+    return parts.length > 0 ? `in ${parts.join(' > ')}` : null;
+  };
+
+  const locationHierarchy = getLocationHierarchy();
 
   // Query for location leaders
   const { data, loading, error } = useQuery(GET_LOCATION_LEADERS, {
@@ -95,18 +156,24 @@ export default function LocationInfoScreen() {
       >
         {/* Location Header */}
         <View style={styles.locationHeader}>
+          {orgName && (
+            <Text style={styles.orgName}>{orgName}</Text>
+          )}
           <View style={styles.locationIconContainer}>
             <Ionicons name="location" size={40} color="#007AFF" />
           </View>
-          <Text style={styles.locationName}>{name}</Text>
+          <Text style={styles.locationName}>{name?.toUpperCase()}</Text>
           <Text style={styles.locationType}>{LEVEL_LABELS[level || ''] || level}</Text>
+          {locationHierarchy && (
+            <Text style={styles.locationHierarchy}>{locationHierarchy}</Text>
+          )}
         </View>
 
-        {/* AI Analytics Section */}
+        {/* Summary of Recent Activity Section */}
         <View style={styles.section}>
           <View style={styles.aiHeaderRow}>
             <Ionicons name="sparkles" size={18} color="#007AFF" />
-            <Text style={styles.sectionTitle}>AI Analytics</Text>
+            <Text style={styles.sectionTitle}>Summary of Recent Activity</Text>
           </View>
 
           {analyticsLoading ? (
@@ -150,27 +217,32 @@ export default function LocationInfoScreen() {
             </View>
           ) : (
             <View style={styles.leadersList}>
-              {leaders.map((leader) => (
-                <TouchableOpacity
-                  key={leader.id}
-                  style={styles.leaderCard}
-                  onPress={() => router.push(`/user/${leader.id}`)}
-                  activeOpacity={0.7}
-                >
-                  <Avatar
-                    uri={leader.avatar}
-                    name={getLeaderName(leader)}
-                    size={50}
-                  />
-                  <View style={styles.leaderInfo}>
-                    <Text style={styles.leaderName}>{getLeaderName(leader)}</Text>
-                    {leader.role && (
-                      <Text style={styles.leaderRole}>{leader.role}</Text>
-                    )}
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#CCC" />
-                </TouchableOpacity>
-              ))}
+              {leaders.map((leader) => {
+                const roleLabel = formatRoleLabel(leader.role, leader.leaderLevel);
+                const badgeColor = getRoleBadgeColor(leader.role, leader.leaderLevel);
+
+                return (
+                  <TouchableOpacity
+                    key={leader.id}
+                    style={styles.leaderCard}
+                    onPress={() => router.push(`/user/${leader.id}`)}
+                    activeOpacity={0.7}
+                  >
+                    <Avatar
+                      uri={leader.avatar}
+                      name={getLeaderName(leader)}
+                      size={50}
+                    />
+                    <View style={styles.leaderInfo}>
+                      <Text style={styles.leaderName}>{getLeaderName(leader)}</Text>
+                      <View style={[styles.roleBadge, { backgroundColor: badgeColor }]}>
+                        <Text style={styles.roleBadgeText}>{roleLabel}</Text>
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#CCC" />
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
         </View>
@@ -247,6 +319,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 16,
   },
+  orgName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007AFF',
+    textAlign: 'center',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   locationIconContainer: {
     width: 80,
     height: 80,
@@ -267,6 +348,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  locationHierarchy: {
+    fontSize: 14,
+    color: '#007AFF',
+    textAlign: 'center',
+    marginTop: 8,
   },
   section: {
     backgroundColor: '#FFFFFF',
@@ -356,6 +443,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 2,
+  },
+  roleBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  roleBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   statsGrid: {
     flexDirection: 'row',

@@ -24,6 +24,7 @@ import {
   CREATE_COMMENT,
   CAST_VOTE,
   SHARE_POST,
+  DELETE_POST,
 } from '@/lib/graphql/mutations/feed';
 import { Post } from '@/types';
 import { usePolling } from '@/hooks/usePolling';
@@ -57,6 +58,7 @@ export default function FeedScreen() {
     getLastLocationForOrg,
     markOrgAsVisited,
     hasVisitedOrg,
+    removePost,
   } = useFeedStore();
 
   const [showNewPostsBanner, setShowNewPostsBanner] = useState(false);
@@ -194,6 +196,7 @@ export default function FeedScreen() {
   const [createCommentMutation] = useMutation(CREATE_COMMENT);
   const [castVoteMutation] = useMutation(CAST_VOTE);
   const [sharePostMutation] = useMutation(SHARE_POST);
+  const [deletePostMutation] = useMutation(DELETE_POST);
 
   // Initial load
   useEffect(() => {
@@ -352,6 +355,26 @@ export default function FeedScreen() {
     router.push(`/post/${postId}`);
   }, [router]);
 
+  // Handle delete
+  const handleDelete = useCallback(
+    async (postId: string) => {
+      // Optimistic update - remove from UI immediately
+      removePost(postId);
+
+      try {
+        await deletePostMutation({
+          variables: { postId },
+        });
+      } catch (error) {
+        console.error('Error deleting post:', error);
+        Alert.alert('Error', 'Failed to delete post. Please try again.');
+        // Refetch to restore the post if deletion failed
+        refetch();
+      }
+    },
+    [deletePostMutation, removePost, refetch]
+  );
+
   // Handle vote
   const handleVote = useCallback(
     async (postId: string, pollId: string, optionId: string) => {
@@ -393,7 +416,19 @@ export default function FeedScreen() {
     let targetLevel: OrgLevel | undefined = undefined;
     let targetFilter: LocationFilter | null = null;
 
-    if (org?.id) {
+    if (type === 'all') {
+      // For "All Organizations" view, always have a location selected
+      // Use current active level if available, otherwise default to LGA
+      if (activeLevel) {
+        targetLevel = activeLevel;
+      } else if (user?.location?.lga) {
+        targetLevel = 'LGA';
+      } else if (user?.location?.state) {
+        targetLevel = 'STATE';
+      } else if (user?.location?.country) {
+        targetLevel = 'COUNTRY';
+      }
+    } else if (org?.id) {
       // Check if user has visited this org before
       if (hasVisitedOrg(org.id)) {
         // Restore last location
@@ -410,27 +445,27 @@ export default function FeedScreen() {
           targetLevel = 'STATE';
         }
       }
+    }
 
-      // Build location filter based on target level
-      if (targetLevel && user?.location) {
-        targetFilter = {};
-        switch (targetLevel) {
-          case 'COUNTRY':
-            if (user.location.country) targetFilter.countryId = user.location.country.id;
-            break;
-          case 'STATE':
-            if (user.location.state) targetFilter.stateId = user.location.state.id;
-            break;
-          case 'LGA':
-            if (user.location.lga) targetFilter.lgaId = user.location.lga.id;
-            break;
-          case 'WARD':
-            if (user.location.ward) targetFilter.wardId = user.location.ward.id;
-            break;
-          case 'POLLING_UNIT':
-            if (user.location.pollingUnit) targetFilter.pollingUnitId = user.location.pollingUnit.id;
-            break;
-        }
+    // Build location filter based on target level
+    if (targetLevel && user?.location) {
+      targetFilter = {};
+      switch (targetLevel) {
+        case 'COUNTRY':
+          if (user.location.country) targetFilter.countryId = user.location.country.id;
+          break;
+        case 'STATE':
+          if (user.location.state) targetFilter.stateId = user.location.state.id;
+          break;
+        case 'LGA':
+          if (user.location.lga) targetFilter.lgaId = user.location.lga.id;
+          break;
+        case 'WARD':
+          if (user.location.ward) targetFilter.wardId = user.location.ward.id;
+          break;
+        case 'POLLING_UNIT':
+          if (user.location.pollingUnit) targetFilter.pollingUnitId = user.location.pollingUnit.id;
+          break;
       }
     }
 
@@ -470,8 +505,20 @@ export default function FeedScreen() {
   const handleLocationCirclePress = useCallback(async (circle: any) => {
     console.log('📍 Selected location level:', circle.level, circle.name);
 
-    // Toggle active level
-    const newActiveLevel = circle.level === activeLevel ? undefined : circle.level;
+    // In "All Organizations" view, don't allow un-selecting - always have a location selected
+    // Clicking the same circle does nothing, clicking a different circle switches to it
+    let newActiveLevel: OrgLevel | undefined;
+    if (selectedType === 'all') {
+      // In "All Organizations" view, always select (no toggle off)
+      newActiveLevel = circle.level;
+      if (circle.level === activeLevel) {
+        // Already selected, do nothing
+        return;
+      }
+    } else {
+      // Normal toggle behavior for specific org views
+      newActiveLevel = circle.level === activeLevel ? undefined : circle.level;
+    }
     setActiveLevel(newActiveLevel);
 
     // Update current location level in store so create-post can read it
@@ -535,21 +582,46 @@ export default function FeedScreen() {
       console.error('Error refetching feed after location change:', error);
     }
     setLoading(false);
-  }, [activeLevel, selectedOrg, limit, refetch, setLocationFilter, setCurrentLocationLevel,
+  }, [activeLevel, selectedOrg, selectedType, limit, refetch, setLocationFilter, setCurrentLocationLevel,
       resetFeed, setLoading, saveLastLocationForOrg]);
 
   // Handle location info press (second tap on already active location)
   const handleLocationInfoPress = useCallback((circle: any) => {
     console.log('📍 Opening location info:', circle.level, circle.name);
+
+    // Build location hierarchy params
+    const hierarchyParams: Record<string, string> = {};
+    if (user?.location?.state?.name) hierarchyParams.stateName = user.location.state.name;
+    if (user?.location?.lga?.name) hierarchyParams.lgaName = user.location.lga.name;
+    if (user?.location?.ward?.name) hierarchyParams.wardName = user.location.ward.name;
+
     router.push({
       pathname: '/location-info',
       params: {
         id: circle.id,
         level: circle.level,
         name: circle.name,
+        orgName: selectedOrg?.name || '',
+        ...hierarchyParams,
       },
     });
-  }, [router]);
+  }, [router, selectedOrg, user]);
+
+  // Handle organization press from post card - switch to that org in the feed
+  const handleOrgPress = useCallback((orgId: string) => {
+    // Find the org in the user's organizations and switch to it
+    // The org data should come from the post's organization field
+    const post = posts.find(p => p.organization?.id === orgId);
+    if (post?.organization) {
+      // Create an org object compatible with handleOrgSelect
+      const org = {
+        id: post.organization.id,
+        name: post.organization.name,
+        logo: post.organization.logo,
+      };
+      handleOrgSelect(org, 'org');
+    }
+  }, [posts, handleOrgSelect]);
 
   // Render post item
   const renderPost = useCallback(
@@ -562,9 +634,13 @@ export default function FeedScreen() {
         onShare={handleExternalShare}
         onPress={handlePostPress}
         onVote={handleVote}
+        showOrgInfo={selectedType === 'all'}
+        onOrgPress={handleOrgPress}
+        onDelete={handleDelete}
+        currentUserId={user?.id}
       />
     ),
-    [handleLike, handleComment, handleRepost, handleExternalShare, handlePostPress, handleVote]
+    [handleLike, handleComment, handleRepost, handleExternalShare, handlePostPress, handleVote, selectedType, handleOrgPress, handleDelete, user?.id]
   );
 
   // Render list footer
@@ -670,6 +746,7 @@ export default function FeedScreen() {
           onLocationInfoPress={handleLocationInfoPress}
           activeLevel={activeLevel}
           orgLogo={selectedOrg?.logo}
+          hideInfoIcon={selectedType === 'all'}
         />
       )}
 

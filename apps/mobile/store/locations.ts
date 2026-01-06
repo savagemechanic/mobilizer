@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Country {
   id: string;
@@ -83,25 +85,27 @@ interface LocationsState {
   resetAll: () => void;
 }
 
-export const useLocationsStore = create<LocationsState>((set) => ({
-  // Initial state
-  countries: [],
-  states: [],
-  lgas: [],
-  wards: [],
-  pollingUnits: [],
+export const useLocationsStore = create<LocationsState>()(
+  persist(
+    (set) => ({
+      // Initial state
+      countries: [],
+      states: [],
+      lgas: [],
+      wards: [],
+      pollingUnits: [],
 
-  selectedCountryId: null,
-  selectedStateId: null,
-  selectedLgaId: null,
-  selectedWardId: null,
-  selectedPollingUnitId: null,
+      selectedCountryId: null,
+      selectedStateId: null,
+      selectedLgaId: null,
+      selectedWardId: null,
+      selectedPollingUnitId: null,
 
-  countriesLoading: false,
-  statesLoading: false,
-  lgasLoading: false,
-  wardsLoading: false,
-  pollingUnitsLoading: false,
+      countriesLoading: false,
+      statesLoading: false,
+      lgasLoading: false,
+      wardsLoading: false,
+      pollingUnitsLoading: false,
 
   // Setters
   setCountries: (countries) => set({ countries }),
@@ -171,4 +175,19 @@ export const useLocationsStore = create<LocationsState>((set) => ({
       wards: [],
       pollingUnits: [],
     }),
-}));
+    }),
+    {
+      name: 'locations-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        // Only persist the selected location IDs
+        // Location lists should be fetched fresh on app load
+        selectedCountryId: state.selectedCountryId,
+        selectedStateId: state.selectedStateId,
+        selectedLgaId: state.selectedLgaId,
+        selectedWardId: state.selectedWardId,
+        selectedPollingUnitId: state.selectedPollingUnitId,
+      }),
+    }
+  )
+);

@@ -7,6 +7,7 @@ import {
   Platform,
   TextInput,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useQuery, useLazyQuery } from '@apollo/client';
@@ -303,17 +304,16 @@ export default function LocationPicker({
       {/* PVC Code Mode */}
       {inputMode === 'pvc' && (
         <View style={styles.codeSection}>
-          {/* PVC Instruction Image Placeholder - now on top */}
+          {/* PVC Instruction Image - shows where to find the code */}
           <View style={styles.pvcImageContainer}>
-            <View style={styles.pvcImagePlaceholder}>
-              <Text style={styles.pvcPlaceholderText}>PVC Code Location</Text>
-              <Text style={styles.pvcPlaceholderSubtext}>
-                Find this code on your{'\n'}Permanent Voter's Card
-              </Text>
-              <View style={styles.pvcCodeHighlight}>
-                <Text style={styles.pvcCodeExample}>XX-XX-XX-XXX</Text>
-              </View>
-            </View>
+            <Image
+              source={require('@/assets/images/pvc-code-location.png')}
+              style={styles.pvcImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.pvcImageCaption}>
+              Enter the CODE shown on your PVC (circled above)
+            </Text>
           </View>
 
           {/* Code input and lookup button - now below image */}
@@ -698,41 +698,19 @@ const styles = StyleSheet.create({
   },
   pvcImageContainer: {
     marginBottom: 16,
-  },
-  pvcImagePlaceholder: {
-    backgroundColor: '#E8EDF3',
-    borderRadius: 8,
-    padding: 20,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#D0D7E0',
-    borderStyle: 'dashed',
   },
-  pvcPlaceholderText: {
-    fontSize: 14,
-    fontWeight: '600',
+  pvcImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 8,
+  },
+  pvcImageCaption: {
+    fontSize: 13,
     color: '#4A5568',
-    marginBottom: 4,
-  },
-  pvcPlaceholderSubtext: {
-    fontSize: 12,
-    color: '#718096',
     textAlign: 'center',
-    marginBottom: 12,
-  },
-  pvcCodeHighlight: {
-    backgroundColor: '#FFF',
-    borderRadius: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-  },
-  pvcCodeExample: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#007AFF',
-    letterSpacing: 2,
+    marginTop: 8,
+    fontWeight: '500',
   },
   foundLocationSection: {
     marginTop: 20,

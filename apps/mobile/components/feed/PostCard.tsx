@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Dimensions,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -55,6 +56,10 @@ interface PostCardProps {
   onPress?: (postId: string) => void;
   onVote?: (postId: string, pollId: string, optionId: string) => void;
   onAuthorPress?: (authorId: string) => void;
+  showOrgInfo?: boolean; // Show organization name as clickable link (for "All Organizations" view)
+  onOrgPress?: (orgSlug: string) => void;
+  onDelete?: (postId: string) => void;
+  currentUserId?: string; // Current user ID to check ownership for delete
 }
 
 export function PostCard({
@@ -66,9 +71,16 @@ export function PostCard({
   onPress,
   onVote,
   onAuthorPress,
+  showOrgInfo,
+  onOrgPress,
+  onDelete,
+  currentUserId,
 }: PostCardProps) {
   const router = useRouter();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
+  // Check if current user owns this post
+  const isOwnPost = currentUserId && post.author?.id === currentUserId;
 
   // Format timestamp
   const timeAgo = formatTimeShort(new Date(post.createdAt));
@@ -87,6 +99,34 @@ export function PostCard({
         router.push(`/user/${post.author.id}`);
       }
     }
+  };
+
+  // Handle organization press
+  const handleOrgPress = () => {
+    if (post.organization?.id) {
+      if (onOrgPress) {
+        onOrgPress(post.organization.id);
+      } else {
+        // Navigate to org page using id (slug not available in summary)
+        router.push(`/organization/${post.organization.id}`);
+      }
+    }
+  };
+
+  // Handle delete press
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => onDelete?.(post.id),
+        },
+      ]
+    );
   };
 
   // Handle like press
@@ -128,29 +168,49 @@ export function PostCard({
       activeOpacity={0.95}
     >
       {/* Header */}
-      <TouchableOpacity
-        style={styles.header}
-        onPress={handleAuthorPress}
-        activeOpacity={0.7}
-      >
-        <Avatar uri={post.author?.avatar} name={authorName} size={44} />
-        <View style={styles.headerInfo}>
-          <View style={styles.headerTop}>
-            <View style={styles.authorNameRow}>
-              <Text style={styles.authorName}>{authorName}</Text>
-              {post.author?.isLeader && (
-                <LeaderBadge level={post.author.leaderLevel} size="small" />
-              )}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.headerMain}
+          onPress={handleAuthorPress}
+          activeOpacity={0.7}
+        >
+          <Avatar uri={post.author?.avatar} name={authorName} size={44} />
+          <View style={styles.headerInfo}>
+            <View style={styles.headerTop}>
+              <View style={styles.authorNameRow}>
+                <Text style={styles.authorName}>{authorName}</Text>
+                {post.author?.isLeader && (
+                  <LeaderBadge level={post.author.leaderLevel} size="small" />
+                )}
+                <Text style={styles.timestamp}>· {timeAgo}</Text>
+              </View>
             </View>
-            <Text style={styles.timestamp}>{timeAgo}</Text>
+            {post.author?.email && (
+              <Text style={styles.authorHandle} numberOfLines={1}>
+                @{post.author.email.split('@')[0]}
+              </Text>
+            )}
+            {/* Organization info for "All Organizations" view */}
+            {showOrgInfo && post.organization?.name && (
+              <TouchableOpacity onPress={handleOrgPress} activeOpacity={0.7}>
+                <Text style={styles.orgLink} numberOfLines={1}>
+                  in {post.organization.name}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
-          {post.author?.email && (
-            <Text style={styles.authorHandle} numberOfLines={1}>
-              @{post.author.email.split('@')[0]}
-            </Text>
-          )}
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+        {/* Delete button (only for own posts) */}
+        {isOwnPost && onDelete && (
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={handleDelete}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* Content */}
       {post.content && (
@@ -336,9 +396,14 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 16,
     marginBottom: 12,
+  },
+  headerMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerInfo: {
     flex: 1,
@@ -346,8 +411,12 @@ const styles = StyleSheet.create({
   },
   headerTop: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  menuButton: {
+    padding: 8,
+    marginLeft: 4,
+    marginTop: -4,
   },
   authorNameRow: {
     flexDirection: 'row',
@@ -368,6 +437,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#536471',
     marginTop: 1,
+  },
+  orgLink: {
+    fontSize: 13,
+    color: '#007AFF',
+    marginTop: 2,
+    fontWeight: '500',
   },
   content: {
     fontSize: 15,

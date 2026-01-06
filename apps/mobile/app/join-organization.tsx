@@ -20,6 +20,7 @@ import { JOIN_ORGANIZATION_BY_CODE } from '@/lib/graphql/mutations/organizations
 import { Button } from '@/components/ui';
 import { useAuthStore } from '@/store/auth';
 import type { Organization } from '@/types';
+import { useQuery } from '@apollo/client';
 
 // Debug: show current user info
 const DEBUG_MODE = __DEV__;
@@ -49,6 +50,20 @@ export default function JoinOrganizationScreen() {
   const { isAuthenticated, isLoading: authLoading, user, logout } = useAuthStore();
 
   console.log('🔐 JoinOrg: Auth state:', { isAuthenticated, authLoading, user: user?.email });
+
+  // Query user's organizations to check membership
+  const { data: myOrgsData, loading: myOrgsLoading } = useQuery(GET_MY_ORGANIZATIONS, {
+    skip: !isAuthenticated,
+    fetchPolicy: 'cache-and-network', // Ensure we get latest data
+  });
+
+  // Check if preview org is already joined
+  const isAlreadyMember = React.useMemo(() => {
+    if (!previewOrg || !myOrgsData?.myOrganizations) return false;
+    const result = myOrgsData.myOrganizations.some((org: any) => org.id === previewOrg.id);
+    console.log('🔍 Membership check:', { previewOrgId: previewOrg.id, orgs: myOrgsData.myOrganizations.map((o: any) => o.id), isAlreadyMember: result });
+    return result;
+  }, [previewOrg, myOrgsData]);
 
   // Only authenticated users can access this page
   // Redirect to welcome screen if not logged in
@@ -266,14 +281,35 @@ export default function JoinOrganizationScreen() {
               </Text>
             </View>
 
-            <Button
-              title="Join Organization"
-              onPress={handleJoin}
-              variant="primary"
-              loading={joining}
-              fullWidth
-              style={styles.joinButton}
-            />
+            {myOrgsLoading ? (
+              <View style={styles.loadingMembershipContainer}>
+                <ActivityIndicator size="small" color="#007AFF" />
+                <Text style={styles.loadingMembershipText}>Checking membership...</Text>
+              </View>
+            ) : isAlreadyMember ? (
+              <View style={styles.alreadyMemberContainer}>
+                <View style={styles.alreadyMemberBadge}>
+                  <Ionicons name="checkmark-circle" size={20} color="#34C759" />
+                  <Text style={styles.alreadyMemberText}>Already a Member</Text>
+                </View>
+                <Button
+                  title="View Organization"
+                  onPress={() => router.replace(`/organization/${previewOrg.slug || previewOrg.id}`)}
+                  variant="secondary"
+                  fullWidth
+                  style={styles.joinButton}
+                />
+              </View>
+            ) : (
+              <Button
+                title="Join Organization"
+                onPress={handleJoin}
+                variant="primary"
+                loading={joining}
+                fullWidth
+                style={styles.joinButton}
+              />
+            )}
           </View>
         )}
       </View>
@@ -436,5 +472,33 @@ const styles = StyleSheet.create({
   },
   joinButton: {
     // Empty - default styling
+  },
+  alreadyMemberContainer: {
+    gap: 12,
+  },
+  alreadyMemberBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    backgroundColor: '#E8F8ED',
+    borderRadius: 8,
+  },
+  alreadyMemberText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#34C759',
+  },
+  loadingMembershipContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+  },
+  loadingMembershipText: {
+    fontSize: 14,
+    color: '#666',
   },
 });

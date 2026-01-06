@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Organization, OrgMembership } from '@/types';
 
 interface OrganizationFilters {
@@ -62,24 +64,26 @@ interface OrganizationsState {
   optimisticLeave: (orgId: string) => void;
 }
 
-export const useOrganizationsStore = create<OrganizationsState>((set, get) => ({
-  // Initial state
-  organizations: [],
-  myOrganizations: [],
-  currentOrganization: null,
-  filters: {},
-  offset: 0,
-  limit: 20,
-  hasMore: true,
-  isLoading: false,
-  isRefreshing: false,
-  error: null,
+export const useOrganizationsStore = create<OrganizationsState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      organizations: [],
+      myOrganizations: [],
+      currentOrganization: null,
+      filters: {},
+      offset: 0,
+      limit: 20,
+      hasMore: true,
+      isLoading: false,
+      isRefreshing: false,
+      error: null,
 
-  members: [],
-  membersOffset: 0,
-  membersLimit: 20,
-  membersHasMore: true,
-  membersLoading: false,
+      members: [],
+      membersOffset: 0,
+      membersLimit: 20,
+      membersHasMore: true,
+      membersLoading: false,
 
   // Set organizations (replace all)
   setOrganizations: (organizations: Organization[]) => {
@@ -271,4 +275,16 @@ export const useOrganizationsStore = create<OrganizationsState>((set, get) => ({
       myOrganizations: state.myOrganizations.filter((org) => org.id !== orgId),
     }));
   },
-}));
+    }),
+    {
+      name: 'organizations-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        // Only persist the current organization and myOrganizations
+        // Other data should be fetched fresh on app load
+        currentOrganization: state.currentOrganization,
+        myOrganizations: state.myOrganizations,
+      }),
+    }
+  )
+);

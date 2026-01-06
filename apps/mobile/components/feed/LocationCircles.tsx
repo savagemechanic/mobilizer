@@ -19,6 +19,7 @@ interface LocationCirclesProps {
   onLocationInfoPress?: (circle: LocationCircle) => void;
   activeLevel?: OrgLevel;
   orgLogo?: string; // The selected organization's logo
+  hideInfoIcon?: boolean; // Hide the info icon badge (for "All Organizations" view)
 }
 
 const CIRCLE_SIZES: Record<OrgLevel, number> = {
@@ -56,15 +57,17 @@ export default function LocationCircles({
   onLocationInfoPress,
   activeLevel,
   orgLogo,
+  hideInfoIcon,
 }: LocationCirclesProps) {
   const handleCirclePress = (circle: LocationCircle) => {
     const isActive = activeLevel === circle.level;
 
-    if (isActive && onLocationInfoPress) {
-      // Already active - show location info
+    if (isActive && onLocationInfoPress && !hideInfoIcon) {
+      // Already active - show location info (only if info icon is shown)
       onLocationInfoPress(circle);
     } else {
       // Not active - toggle/select this location
+      // Or if already active but info icon is hidden, toggle it off
       onCirclePress(circle);
     }
   };
@@ -108,9 +111,9 @@ export default function LocationCircles({
                     <Image
                       source={{ uri: orgLogo }}
                       style={{
-                        width: size - 6,
-                        height: size - 6,
-                        borderRadius: (size - 6) / 2,
+                        width: size - 12,
+                        height: size - 12,
+                        borderRadius: (size - 12) / 2,
                       }}
                       resizeMode="cover"
                     />
@@ -122,12 +125,12 @@ export default function LocationCircles({
                     />
                   )}
 
-                  {/* Info icon badge - attached to top-right of circle */}
-                  {isActive && (
+                  {/* Info icon badge - attached to top-right of circle (hidden in "All Organizations" view) */}
+                  {isActive && !hideInfoIcon && (
                     <View style={styles.infoIconBadge}>
                       <Ionicons
                         name="information-circle"
-                        size={20}
+                        size={30}
                         color={color}
                       />
                     </View>
@@ -195,10 +198,10 @@ const styles = StyleSheet.create({
   },
   infoIconBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
+    top: -8,
+    right: -8,
     backgroundColor: '#FFF',
-    borderRadius: 10,
+    borderRadius: 15,
     padding: 0,
   },
   circle: {
@@ -216,18 +219,19 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
   },
-  // Name label - below circle, bold, uppercase
+  // Name label - below circle, uppercase, bold only when active
   nameLabel: {
     fontSize: 13,
     color: '#333',
-    fontWeight: '700',
+    fontWeight: '400',
     textAlign: 'center',
     marginTop: 6,
   },
   nameLabelActive: {
     color: '#007AFF',
+    fontWeight: '700',
   },
-  // Level label - at bottom, title case, not bold
+  // Level label - at bottom, title case, NOT bold even when active
   levelLabel: {
     fontSize: 12,
     color: '#666',
@@ -237,5 +241,6 @@ const styles = StyleSheet.create({
   },
   levelLabelActive: {
     color: '#007AFF',
+    // Keep fontWeight: '400' - don't bold the location type
   },
 });
