@@ -1,13 +1,22 @@
 import { ObjectType, Field } from '@nestjs/graphql';
-import { Country, State, LGA, Ward, PollingUnit } from '../../locations/entities/location.entity';
+import { Country, State, LGA, Ward, PollingUnit, GeopoliticalZone, SenatorialZone, FederalConstituency } from '../../locations/entities/location.entity';
 
 @ObjectType()
 export class UserLocation {
   @Field(() => Country, { nullable: true })
   country?: Country;
 
+  @Field(() => GeopoliticalZone, { nullable: true })
+  geopoliticalZone?: GeopoliticalZone;
+
   @Field(() => State, { nullable: true })
   state?: State;
+
+  @Field(() => SenatorialZone, { nullable: true })
+  senatorialZone?: SenatorialZone;
+
+  @Field(() => FederalConstituency, { nullable: true })
+  federalConstituency?: FederalConstituency;
 
   @Field(() => LGA, { nullable: true })
   lga?: LGA;

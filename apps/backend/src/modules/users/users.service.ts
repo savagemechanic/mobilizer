@@ -11,8 +11,18 @@ export class UsersService {
       where: { id },
       include: {
         country: true,
-        state: true,
-        lga: true,
+        state: {
+          include: {
+            geopoliticalZone: true,
+          },
+        },
+        lga: {
+          include: {
+            geopoliticalZone: true,
+            senatorialZone: true,
+            federalConstituency: true,
+          },
+        },
         ward: true,
         pollingUnit: true,
         followers: {

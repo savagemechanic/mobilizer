@@ -25,10 +25,22 @@ export class UsersResolver {
       return null;
     }
 
+    // Derive zone information from LGA if available
+    const lga = user.lga || null;
+    const state = user.state || null;
+
+    // GeopoliticalZone comes from state's relation, SenatorialZone and FederalConstituency come from LGA
+    const geopoliticalZone = state?.geopoliticalZone || lga?.geopoliticalZone || null;
+    const senatorialZone = lga?.senatorialZone || null;
+    const federalConstituency = lga?.federalConstituency || null;
+
     return {
       country: user.country || null,
-      state: user.state || null,
-      lga: user.lga || null,
+      geopoliticalZone,
+      state,
+      senatorialZone,
+      federalConstituency,
+      lga,
       ward: user.ward || null,
       pollingUnit: user.pollingUnit || null,
     };

@@ -44,7 +44,7 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(input.password, 10);
 
-    // Create user
+    // Create user with zone relations
     const user = await this.prisma.user.create({
       data: {
         email: input.email,
@@ -55,6 +55,7 @@ export class AuthService {
         phoneNumber: input.phoneNumber,
         displayName: `${input.firstName} ${input.lastName}`,
         username: normalizedUsername,
+        gender: input.gender,
         profession: input.profession,
         countryId: input.countryId,
         stateId: input.stateId,
@@ -64,8 +65,18 @@ export class AuthService {
       },
       include: {
         country: true,
-        state: true,
-        lga: true,
+        state: {
+          include: {
+            geopoliticalZone: true,
+          },
+        },
+        lga: {
+          include: {
+            geopoliticalZone: true,
+            senatorialZone: true,
+            federalConstituency: true,
+          },
+        },
         ward: true,
         pollingUnit: true,
       },
@@ -87,13 +98,23 @@ export class AuthService {
   }
 
   async login(input: LoginInput): Promise<AuthPayload> {
-    // Find user with location data
+    // Find user with location data including zone relations
     const user = await this.prisma.user.findUnique({
       where: { email: input.email },
       include: {
         country: true,
-        state: true,
-        lga: true,
+        state: {
+          include: {
+            geopoliticalZone: true,
+          },
+        },
+        lga: {
+          include: {
+            geopoliticalZone: true,
+            senatorialZone: true,
+            federalConstituency: true,
+          },
+        },
         ward: true,
         pollingUnit: true,
       },
@@ -143,15 +164,25 @@ export class AuthService {
         secret: this.configService.get('jwt.refreshSecret'),
       });
 
-      // Verify refresh token exists in database
+      // Verify refresh token exists in database with zone relations
       const storedToken = await this.prisma.refreshToken.findUnique({
         where: { token: refreshToken },
         include: {
           user: {
             include: {
               country: true,
-              state: true,
-              lga: true,
+              state: {
+                include: {
+                  geopoliticalZone: true,
+                },
+              },
+              lga: {
+                include: {
+                  geopoliticalZone: true,
+                  senatorialZone: true,
+                  federalConstituency: true,
+                },
+              },
               ward: true,
               pollingUnit: true,
             },
@@ -373,8 +404,18 @@ export class AuthService {
       where: { id: userId },
       include: {
         country: true,
-        state: true,
-        lga: true,
+        state: {
+          include: {
+            geopoliticalZone: true,
+          },
+        },
+        lga: {
+          include: {
+            geopoliticalZone: true,
+            senatorialZone: true,
+            federalConstituency: true,
+          },
+        },
         ward: true,
         pollingUnit: true,
       },
@@ -552,12 +593,22 @@ export class AuthService {
 
     // Add location data if available
     if (user.country || user.state || user.lga || user.ward || user.pollingUnit) {
+      // Derive zone information from state and LGA
+      const state = user.state || null;
+      const lga = user.lga || null;
+      const geopoliticalZone = state?.geopoliticalZone || lga?.geopoliticalZone || null;
+      const senatorialZone = lga?.senatorialZone || null;
+      const federalConstituency = lga?.federalConstituency || null;
+
       return {
         ...baseUser,
         location: {
           country: user.country || null,
-          state: user.state || null,
-          lga: user.lga || null,
+          geopoliticalZone,
+          state,
+          senatorialZone,
+          federalConstituency,
+          lga,
           ward: user.ward || null,
           pollingUnit: user.pollingUnit || null,
         },
