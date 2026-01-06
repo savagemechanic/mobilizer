@@ -10,6 +10,17 @@ export const GET_COUNTRIES = gql`
   }
 `
 
+export const GET_GEOPOLITICAL_ZONES = gql`
+  query GetGeopoliticalZones($countryId: String) {
+    geopoliticalZones(countryId: $countryId) {
+      id
+      name
+      code
+      countryId
+    }
+  }
+`
+
 export const GET_STATES = gql`
   query GetStates($countryId: String) {
     states(countryId: $countryId) {
@@ -21,13 +32,37 @@ export const GET_STATES = gql`
   }
 `
 
-export const GET_LGAS = gql`
-  query GetLGAs($stateId: String) {
-    lgas(stateId: $stateId) {
+export const GET_SENATORIAL_ZONES = gql`
+  query GetSenatorialZones($stateId: String) {
+    senatorialZones(stateId: $stateId) {
       id
       name
       code
       stateId
+    }
+  }
+`
+
+export const GET_FEDERAL_CONSTITUENCIES = gql`
+  query GetFederalConstituencies($stateId: String) {
+    federalConstituencies(stateId: $stateId) {
+      id
+      name
+      code
+      stateId
+    }
+  }
+`
+
+export const GET_LGAS = gql`
+  query GetLGAs($stateId: String, $senatorialZoneId: String, $federalConstituencyId: String) {
+    lgas(stateId: $stateId, senatorialZoneId: $senatorialZoneId, federalConstituencyId: $federalConstituencyId) {
+      id
+      name
+      code
+      stateId
+      senatorialZoneId
+      federalConstituencyId
     }
   }
 `

@@ -31,6 +31,7 @@ import { JobsModule } from './jobs/jobs.module';
 import { AiModule } from './modules/ai/ai.module';
 import { FirebaseModule } from './modules/firebase/firebase.module';
 import { LegalModule } from './modules/legal/legal.module';
+import { WalletModule } from './modules/wallet/wallet.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { LegalModule } from './modules/legal/legal.module';
     JobsModule,
     AiModule,
     LegalModule,
+    WalletModule,
   ],
   providers: [PrismaService],
 })

@@ -31,4 +31,32 @@ export class DashboardStats {
 
   @Field(() => [LevelDistribution])
   levelDistribution: LevelDistribution[];
+
+  // Coverage Statistics
+  @Field(() => Int)
+  countriesCovered: number;
+
+  @Field(() => Int)
+  statesCovered: number;
+
+  @Field(() => Int)
+  lgasCovered: number;
+
+  @Field(() => Int)
+  wardsCovered: number;
+
+  @Field(() => Int)
+  pollingUnitsCovered: number;
+
+  @Field(() => Int)
+  totalStates: number;
+
+  @Field(() => Int)
+  totalLgas: number;
+
+  @Field(() => Int)
+  totalWards: number;
+
+  @Field(() => Int)
+  totalPollingUnits: number;
 }

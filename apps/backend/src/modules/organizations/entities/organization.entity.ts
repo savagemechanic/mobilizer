@@ -68,6 +68,15 @@ export class OrganizationEntity {
   isActive: boolean;
 
   @Field()
+  isPrivate: boolean;
+
+  @Field()
+  requiresConfirmation: boolean;
+
+  @Field(() => [String])
+  enabledLocationLevels: string[];
+
+  @Field()
   createdAt: Date;
 
   @Field({ nullable: true })
@@ -160,6 +169,9 @@ export class OrgMembershipEntity {
   // Leader fields
   @Field()
   isLeader: boolean;
+
+  @Field()
+  isChairman: boolean;
 
   @Field(() => LeaderLevel, { nullable: true })
   leaderLevel?: LeaderLevel;

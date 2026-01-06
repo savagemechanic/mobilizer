@@ -40,16 +40,40 @@ export class LocationsService {
       where: { id },
       include: {
         country: true,
+        geopoliticalZone: true,
       },
     });
   }
 
   // ============================================
-  // LGAs
+  // GEOPOLITICAL ZONES
   // ============================================
 
-  async getLGAs(stateId?: string) {
-    return this.prisma.lGA.findMany({
+  async getGeopoliticalZones(countryId?: string) {
+    return this.prisma.geopoliticalZone.findMany({
+      where: countryId ? { countryId } : undefined,
+      orderBy: { name: 'asc' },
+      include: {
+        country: true,
+      },
+    });
+  }
+
+  async getGeopoliticalZone(id: string) {
+    return this.prisma.geopoliticalZone.findUnique({
+      where: { id },
+      include: {
+        country: true,
+      },
+    });
+  }
+
+  // ============================================
+  // SENATORIAL ZONES
+  // ============================================
+
+  async getSenatorialZones(stateId?: string) {
+    return this.prisma.senatorialZone.findMany({
       where: stateId ? { stateId } : undefined,
       orderBy: { name: 'asc' },
       include: {
@@ -62,8 +86,8 @@ export class LocationsService {
     });
   }
 
-  async getLGA(id: string) {
-    return this.prisma.lGA.findUnique({
+  async getSenatorialZone(id: string) {
+    return this.prisma.senatorialZone.findUnique({
       where: { id },
       include: {
         state: {
@@ -71,6 +95,81 @@ export class LocationsService {
             country: true,
           },
         },
+      },
+    });
+  }
+
+  // ============================================
+  // FEDERAL CONSTITUENCIES
+  // ============================================
+
+  async getFederalConstituencies(stateId?: string) {
+    return this.prisma.federalConstituency.findMany({
+      where: stateId ? { stateId } : undefined,
+      orderBy: { name: 'asc' },
+      include: {
+        state: {
+          include: {
+            country: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getFederalConstituency(id: string) {
+    return this.prisma.federalConstituency.findUnique({
+      where: { id },
+      include: {
+        state: {
+          include: {
+            country: true,
+          },
+        },
+      },
+    });
+  }
+
+  // ============================================
+  // LGAs
+  // ============================================
+
+  async getLGAs(stateId?: string, senatorialZoneId?: string, federalConstituencyId?: string) {
+    const where: any = {};
+    if (stateId) where.stateId = stateId;
+    if (senatorialZoneId) where.senatorialZoneId = senatorialZoneId;
+    if (federalConstituencyId) where.federalConstituencyId = federalConstituencyId;
+
+    return this.prisma.lGA.findMany({
+      where: Object.keys(where).length > 0 ? where : undefined,
+      orderBy: { name: 'asc' },
+      include: {
+        state: {
+          include: {
+            country: true,
+            geopoliticalZone: true,
+          },
+        },
+        geopoliticalZone: true,
+        senatorialZone: true,
+        federalConstituency: true,
+      },
+    });
+  }
+
+  async getLGA(id: string) {
+    return this.prisma.lGA.findUnique({
+      where: { id },
+      include: {
+        state: {
+          include: {
+            country: true,
+            geopoliticalZone: true,
+          },
+        },
+        geopoliticalZone: true,
+        senatorialZone: true,
+        federalConstituency: true,
       },
     });
   }

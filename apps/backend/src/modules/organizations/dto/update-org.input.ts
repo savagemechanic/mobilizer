@@ -1,5 +1,5 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsOptional, IsString, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsArray } from 'class-validator';
 
 @InputType()
 export class UpdateOrgInput {
@@ -27,4 +27,19 @@ export class UpdateOrgInput {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  isPrivate?: boolean;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  requiresConfirmation?: boolean;
+
+  @Field(() => [String], { nullable: true })
+  @IsOptional()
+  @IsArray()
+  enabledLocationLevels?: string[];
 }

@@ -2,24 +2,27 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation } from '@apollo/client'
-import { Settings, Save, Database, Mail, Bell, Shield, Globe, Zap, AlertCircle, Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Settings, Save, Database, Mail, Bell, Shield, Globe, Zap, AlertCircle, Loader2, ToggleLeft, ToggleRight, Type } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { Label } from '@/ui/label'
+import { Switch } from '@/ui/switch'
 import { GET_PLATFORM_SETTINGS } from '@/lib/graphql/queries/platform-admin'
-import { TOGGLE_PUBLIC_ORG } from '@/lib/graphql/mutations/platform-admin'
+import { TOGGLE_PUBLIC_ORG, UPDATE_SUPPORT_GROUP_DISPLAY_NAME } from '@/lib/graphql/mutations/platform-admin'
 
 interface PlatformSettings {
   id: string
   publicOrgEnabled: boolean
   publicOrgId?: string
+  supportGroupDisplayName: string
   createdAt: string
   updatedAt: string
 }
 
 export default function PlatformSettingsPage() {
   const [saved, setSaved] = useState(false)
+  const [supportGroupDisplayName, setSupportGroupDisplayName] = useState('Support Group')
   const [formData, setFormData] = useState({
     platformName: 'Mobilizer',
     supportEmail: 'support@mobilizer.com',
@@ -40,6 +43,13 @@ export default function PlatformSettingsPage() {
 
   const platformSettings = settingsData?.platformSettings
 
+  // Update local state when settings are loaded
+  useEffect(() => {
+    if (platformSettings?.supportGroupDisplayName) {
+      setSupportGroupDisplayName(platformSettings.supportGroupDisplayName)
+    }
+  }, [platformSettings])
+
   // Toggle public org mutation
   const [togglePublicOrg, { loading: toggling }] = useMutation(TOGGLE_PUBLIC_ORG, {
     onCompleted: () => {
@@ -50,6 +60,19 @@ export default function PlatformSettingsPage() {
     onError: (error) => {
       console.error('Error toggling public org:', error)
       alert('Failed to update setting: ' + error.message)
+    },
+  })
+
+  // Update support group display name mutation
+  const [updateDisplayName, { loading: updatingDisplayName }] = useMutation(UPDATE_SUPPORT_GROUP_DISPLAY_NAME, {
+    onCompleted: () => {
+      refetch()
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    },
+    onError: (error) => {
+      console.error('Error updating display name:', error)
+      alert('Failed to update terminology: ' + error.message)
     },
   })
 
@@ -72,6 +95,14 @@ export default function PlatformSettingsPage() {
     if (platformSettings) {
       togglePublicOrg({
         variables: { enabled: !platformSettings.publicOrgEnabled }
+      })
+    }
+  }
+
+  const handleUpdateDisplayName = () => {
+    if (supportGroupDisplayName.trim()) {
+      updateDisplayName({
+        variables: { displayName: supportGroupDisplayName.trim() }
       })
     }
   }
@@ -120,27 +151,21 @@ export default function PlatformSettingsPage() {
             <>
               {/* Public Organization Toggle */}
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
+                <div className="flex-1">
                   <Label className="text-base font-medium">Public Organization</Label>
                   <p className="text-sm text-gray-500 mt-1">
                     Allow users to post publicly without joining an organization
                   </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleTogglePublicOrg}
-                  disabled={toggling}
-                  className="p-0 h-auto hover:bg-transparent"
-                >
-                  {toggling ? (
-                    <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-                  ) : platformSettings?.publicOrgEnabled ? (
-                    <ToggleRight className="h-10 w-10 text-green-500" />
-                  ) : (
-                    <ToggleLeft className="h-10 w-10 text-gray-400" />
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {toggling && <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />}
+                  <Switch
+                    checked={platformSettings?.publicOrgEnabled ?? false}
+                    onCheckedChange={handleTogglePublicOrg}
+                    disabled={toggling}
+                    className="data-[state=checked]:bg-green-500"
+                  />
+                </div>
               </div>
 
               {platformSettings?.publicOrgId && (
@@ -151,11 +176,43 @@ export default function PlatformSettingsPage() {
                 </div>
               )}
 
-              {/* Placeholder for future feature flags */}
+              {/* Support Group Terminology */}
               <div className="border-t pt-4 mt-4">
-                <p className="text-sm text-gray-500 italic">
-                  More feature flags will be added here as they become available.
-                </p>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Type className="h-5 w-5 text-indigo-600" />
+                      <Label className="text-base font-medium">Support Group Terminology</Label>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-3">
+                      Customize the display name for "Support Group" throughout the platform
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      value={supportGroupDisplayName}
+                      onChange={(e) => setSupportGroupDisplayName(e.target.value)}
+                      placeholder="e.g., Organization, Group, Community"
+                      className="flex-1"
+                      disabled={updatingDisplayName}
+                    />
+                    <Button
+                      onClick={handleUpdateDisplayName}
+                      disabled={updatingDisplayName || !supportGroupDisplayName.trim() || supportGroupDisplayName === platformSettings?.supportGroupDisplayName}
+                      className="bg-indigo-600 hover:bg-indigo-700"
+                      size="sm"
+                    >
+                      {updatingDisplayName ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Update'
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Current: <span className="font-semibold text-gray-700">{platformSettings?.supportGroupDisplayName || 'Support Group'}</span>
+                  </p>
+                </div>
               </div>
             </>
           )}

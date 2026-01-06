@@ -17,6 +17,15 @@ export const GET_DASHBOARD_STATS = gql`
         level
         count
       }
+      countriesCovered
+      statesCovered
+      lgasCovered
+      wardsCovered
+      pollingUnitsCovered
+      totalStates
+      totalLgas
+      totalWards
+      totalPollingUnits
     }
   }
 `
@@ -36,6 +45,15 @@ export const GET_MEMBER_ANALYTICS = gql`
       }
       locationBreakdown {
         name
+        count
+      }
+      professionBreakdown {
+        profession
+        count
+      }
+      geopoliticalZoneBreakdown {
+        name
+        code
         count
       }
     }
@@ -115,6 +133,9 @@ export const GET_SUPPORT_GROUPS = gql`
       level
       memberCount
       isActive
+      isPrivate
+      requiresConfirmation
+      enabledLocationLevels
       movementId
       countryId
       stateId
@@ -139,6 +160,10 @@ export const GET_ORGANIZATION = gql`
       memberCount
       isActive
       isVerified
+      isPrivate
+      requiresConfirmation
+      enabledLocationLevels
+      inviteCode
       movementId
       parentId
       countryId
@@ -166,6 +191,11 @@ export const GET_ORGANIZATION = gql`
         id
         name
       }
+      movement {
+        id
+        name
+        slug
+      }
       createdAt
       updatedAt
     }
@@ -191,8 +221,8 @@ export const GET_MY_ORGANIZATIONS = gql`
 // ============================================
 
 export const GET_ALL_POSTS = gql`
-  query GetAllPosts($limit: Float, $offset: Float) {
-    feed(limit: $limit, offset: $offset) {
+  query GetAllPosts($limit: Float, $offset: Float, $filter: FeedFilterInput) {
+    feed(limit: $limit, offset: $offset, filter: $filter) {
       id
       content
       type
@@ -260,6 +290,18 @@ export const GET_ORG_MEMBERS = gql`
       orgId
       isAdmin
       isActive
+      isVerified
+      verifiedAt
+      isBlocked
+      blockedAt
+      blockedReason
+      isLeader
+      isChairman
+      leaderLevel
+      leaderStateId
+      leaderLgaId
+      leaderWardId
+      leaderPollingUnitId
       joinedAt
       approvedAt
       user {
@@ -269,6 +311,18 @@ export const GET_ORG_MEMBERS = gql`
         displayName
         email
         avatar
+        phoneNumber
+        profession
+        gender
+        state {
+          name
+        }
+        lga {
+          name
+        }
+        ward {
+          name
+        }
       }
       organization {
         id

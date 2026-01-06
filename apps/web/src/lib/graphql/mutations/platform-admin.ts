@@ -169,6 +169,7 @@ export const TOGGLE_PUBLIC_ORG = gql`
       id
       publicOrgEnabled
       publicOrgId
+      supportGroupDisplayName
       createdAt
       updatedAt
     }
@@ -181,6 +182,20 @@ export const SET_PUBLIC_ORG_ID = gql`
       id
       publicOrgEnabled
       publicOrgId
+      supportGroupDisplayName
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const UPDATE_SUPPORT_GROUP_DISPLAY_NAME = gql`
+  mutation UpdateSupportGroupDisplayName($displayName: String!) {
+    updateSupportGroupDisplayName(displayName: $displayName) {
+      id
+      publicOrgEnabled
+      publicOrgId
+      supportGroupDisplayName
       createdAt
       updatedAt
     }

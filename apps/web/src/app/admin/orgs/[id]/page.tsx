@@ -14,6 +14,7 @@ import {
   Trash2,
   CheckCircle,
   XCircle,
+  Settings,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card'
 import { Button } from '@/ui/button'
@@ -175,6 +176,12 @@ function OrgDetailContent({ id }: { id: string }) {
           <h1 className="text-3xl font-bold">Organization Details</h1>
         </div>
         <div className="flex gap-2">
+          <Link href={`/admin/orgs/${id}/settings`}>
+            <Button variant="outline">
+              <Settings className="mr-2 h-4 w-4" />
+              Settings
+            </Button>
+          </Link>
           <Button variant="outline" onClick={handleEdit}>
             <Edit className="mr-2 h-4 w-4" />
             Edit

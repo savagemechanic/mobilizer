@@ -10,7 +10,6 @@ import {
   Globe,
   UserCog,
   Settings,
-  BarChart3,
   type LucideIcon,
 } from 'lucide-react'
 import { PERMISSIONS, type Permission, type RoleSlug } from '@/constants/permissions'
@@ -34,13 +33,13 @@ export interface NavSection {
 
 /**
  * Platform Admin Navigation Items
- * Only visible to Platform Administrators
- * Platform Admin manages: Movements, Super Admins, Platform Settings
+ * Consistent structure with Admin navigation but at platform level
+ * Platform Admin manages: Movements, Super Admins, Support Groups, Platform Settings
  */
 export const PLATFORM_ADMIN_NAVIGATION: NavSection[] = [
   {
-    id: 'platform_section',
-    label: 'Platform Management',
+    id: 'main_section',
+    label: 'Overview',
     type: 'section',
     roles: ['platform_admin'],
     items: [
@@ -53,10 +52,50 @@ export const PLATFORM_ADMIN_NAVIGATION: NavSection[] = [
         roles: ['platform_admin'],
       },
       {
+        id: 'platform_users',
+        label: 'Members',
+        icon: Users,
+        href: '/platform-admin/users',
+        permission: PERMISSIONS.PLATFORM_USERS,
+        roles: ['platform_admin'],
+      },
+      {
+        id: 'platform_posts',
+        label: 'Post Management',
+        icon: FileText,
+        href: '/platform-admin/posts',
+        permission: PERMISSIONS.PLATFORM_MOVEMENTS,
+        roles: ['platform_admin'],
+      },
+      {
+        id: 'platform_events',
+        label: 'Events',
+        icon: Calendar,
+        href: '/platform-admin/events',
+        permission: PERMISSIONS.PLATFORM_MOVEMENTS,
+        roles: ['platform_admin'],
+      },
+    ],
+  },
+  {
+    id: 'organizations_section',
+    label: 'Organizations',
+    type: 'section',
+    roles: ['platform_admin'],
+    items: [
+      {
         id: 'movements',
         label: 'Movements',
         icon: Globe,
         href: '/platform-admin/movements',
+        permission: PERMISSIONS.PLATFORM_MOVEMENTS,
+        roles: ['platform_admin'],
+      },
+      {
+        id: 'platform_support_groups',
+        label: 'Support Groups',
+        icon: Building2,
+        href: '/platform-admin/support-groups',
         permission: PERMISSIONS.PLATFORM_MOVEMENTS,
         roles: ['platform_admin'],
       },
@@ -68,12 +107,28 @@ export const PLATFORM_ADMIN_NAVIGATION: NavSection[] = [
         permission: PERMISSIONS.PLATFORM_SUPER_ADMINS,
         roles: ['platform_admin'],
       },
+    ],
+  },
+  {
+    id: 'management_section',
+    label: 'Management',
+    type: 'section',
+    roles: ['platform_admin'],
+    items: [
       {
-        id: 'platform_users',
-        label: 'Users',
-        icon: Users,
-        href: '/platform-admin/users',
-        permission: PERMISSIONS.PLATFORM_USERS,
+        id: 'platform_audit',
+        label: 'Audit Trail',
+        icon: ClipboardList,
+        href: '/platform-admin/audit',
+        permission: PERMISSIONS.PLATFORM_SETTINGS,
+        roles: ['platform_admin'],
+      },
+      {
+        id: 'platform_permissions',
+        label: 'Permissions',
+        icon: Shield,
+        href: '/platform-admin/permissions',
+        permission: PERMISSIONS.PLATFORM_SETTINGS,
         roles: ['platform_admin'],
       },
       {
@@ -90,13 +145,18 @@ export const PLATFORM_ADMIN_NAVIGATION: NavSection[] = [
 
 /**
  * Admin Navigation Items
- * Super Admin: All admin features + wallet, support groups, audit trail, permissions
- * Regular Admin: Dashboard, members, posts, events, polls only
+ * Consistent sidebar structure across all admin types:
+ * - Dashboard, Members, Post Management, Events (Main section)
+ * - Support Groups (Organizations section)
+ * - Wallet, Audit Trail, Permissions (Management section)
+ *
+ * Super Admin: All features
+ * Regular Admin: Main section only (Dashboard, Members, Posts, Events)
  */
 export const ADMIN_NAVIGATION: NavSection[] = [
   {
-    id: 'content_section',
-    label: 'Content',
+    id: 'main_section',
+    label: 'Overview',
     type: 'section',
     roles: ['super_admin', 'admin'],
     items: [
@@ -118,7 +178,7 @@ export const ADMIN_NAVIGATION: NavSection[] = [
       },
       {
         id: 'posts',
-        label: 'Posts/Feeds',
+        label: 'Post Management',
         icon: FileText,
         href: '/admin/posts',
         permission: PERMISSIONS.ADMIN_POSTS,
@@ -132,30 +192,30 @@ export const ADMIN_NAVIGATION: NavSection[] = [
         permission: PERMISSIONS.ADMIN_EVENTS,
         roles: ['super_admin', 'admin'],
       },
-      {
-        id: 'polls',
-        label: 'Polls',
-        icon: BarChart3,
-        href: '/admin/polls',
-        permission: PERMISSIONS.ADMIN_POLLS,
-        roles: ['super_admin', 'admin'],
-      },
     ],
   },
   {
-    id: 'super_admin_section',
-    label: 'Management',
+    id: 'support_groups_section',
+    label: 'Support Groups',
     type: 'section',
     roles: ['super_admin'],
     items: [
       {
         id: 'support_groups',
-        label: 'Support Groups',
+        label: 'All Groups',
         icon: Building2,
         href: '/admin/orgs',
         permission: PERMISSIONS.ADMIN_SUPPORT_GROUPS,
         roles: ['super_admin'],
       },
+    ],
+  },
+  {
+    id: 'management_section',
+    label: 'Management',
+    type: 'section',
+    roles: ['super_admin'],
+    items: [
       {
         id: 'wallet',
         label: 'Wallet',
@@ -164,14 +224,6 @@ export const ADMIN_NAVIGATION: NavSection[] = [
         permission: PERMISSIONS.ADMIN_WALLET,
         roles: ['super_admin'],
       },
-    ],
-  },
-  {
-    id: 'system_section',
-    label: 'System',
-    type: 'section',
-    roles: ['super_admin'],
-    items: [
       {
         id: 'audit_trail',
         label: 'Audit Trail',

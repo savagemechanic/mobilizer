@@ -37,7 +37,28 @@ export class State {
 }
 
 @ObjectType()
-export class LGA {
+export class GeopoliticalZone {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  countryId: string;
+
+  @Field()
+  name: string;
+
+  @Field()
+  code: string;
+
+  @Field()
+  createdAt: Date;
+
+  @Field(() => Country, { nullable: true })
+  country?: Country;
+}
+
+@ObjectType()
+export class SenatorialZone {
   @Field(() => ID)
   id: string;
 
@@ -55,6 +76,66 @@ export class LGA {
 
   @Field(() => State, { nullable: true })
   state?: State;
+}
+
+@ObjectType()
+export class FederalConstituency {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  stateId: string;
+
+  @Field()
+  name: string;
+
+  @Field()
+  code: string;
+
+  @Field()
+  createdAt: Date;
+
+  @Field(() => State, { nullable: true })
+  state?: State;
+}
+
+@ObjectType()
+export class LGA {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  stateId: string;
+
+  @Field({ nullable: true })
+  geopoliticalZoneId?: string;
+
+  @Field({ nullable: true })
+  senatorialZoneId?: string;
+
+  @Field({ nullable: true })
+  federalConstituencyId?: string;
+
+  @Field()
+  name: string;
+
+  @Field()
+  code: string;
+
+  @Field()
+  createdAt: Date;
+
+  @Field(() => State, { nullable: true })
+  state?: State;
+
+  @Field(() => GeopoliticalZone, { nullable: true })
+  geopoliticalZone?: GeopoliticalZone;
+
+  @Field(() => SenatorialZone, { nullable: true })
+  senatorialZone?: SenatorialZone;
+
+  @Field(() => FederalConstituency, { nullable: true })
+  federalConstituency?: FederalConstituency;
 }
 
 @ObjectType()

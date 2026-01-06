@@ -94,6 +94,7 @@ export const MAKE_LEADER = gql`
       orgId
       isAdmin
       isLeader
+      isChairman
       leaderLevel
       leaderState {
         id
@@ -146,6 +147,9 @@ export const UPDATE_ORGANIZATION = gql`
       banner
       memberCount
       isActive
+      isPrivate
+      requiresConfirmation
+      enabledLocationLevels
       country {
         id
         name
@@ -167,6 +171,54 @@ export const UPDATE_ORGANIZATION = gql`
         name
       }
       updatedAt
+    }
+  }
+`
+
+export const BLOCK_MEMBER = gql`
+  mutation BlockMember($membershipId: String!, $reason: String!) {
+    blockMember(membershipId: $membershipId, reason: $reason) {
+      id
+      isBlocked
+      blockedAt
+      blockedReason
+    }
+  }
+`
+
+export const UNBLOCK_MEMBER = gql`
+  mutation UnblockMember($membershipId: String!) {
+    unblockMember(membershipId: $membershipId) {
+      id
+      isBlocked
+      blockedAt
+      blockedReason
+    }
+  }
+`
+
+export const MAKE_CHAIRMAN = gql`
+  mutation MakeChairman($membershipId: String!) {
+    makeChairman(membershipId: $membershipId) {
+      id
+      isChairman
+      user {
+        id
+        firstName
+        lastName
+        displayName
+        email
+        avatar
+      }
+    }
+  }
+`
+
+export const REMOVE_CHAIRMAN = gql`
+  mutation RemoveChairman($membershipId: String!) {
+    removeChairman(membershipId: $membershipId) {
+      id
+      isChairman
     }
   }
 `

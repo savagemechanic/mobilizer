@@ -21,7 +21,6 @@ export const PERMISSIONS = {
   ADMIN_MEMBERS: 'admin:members',
   ADMIN_POSTS: 'admin:posts',
   ADMIN_EVENTS: 'admin:events',
-  ADMIN_POLLS: 'admin:polls',
 
   // Super Admin Only Features
   ADMIN_WALLET: 'admin:wallet',
@@ -56,7 +55,6 @@ export const ROLES = {
       PERMISSIONS.ADMIN_MEMBERS,
       PERMISSIONS.ADMIN_POSTS,
       PERMISSIONS.ADMIN_EVENTS,
-      PERMISSIONS.ADMIN_POLLS,
       // Super Admin exclusive
       PERMISSIONS.ADMIN_WALLET,
       PERMISSIONS.ADMIN_SUPPORT_GROUPS,
@@ -74,7 +72,6 @@ export const ROLES = {
       PERMISSIONS.ADMIN_MEMBERS,
       PERMISSIONS.ADMIN_POSTS,
       PERMISSIONS.ADMIN_EVENTS,
-      PERMISSIONS.ADMIN_POLLS,
       // NO: ADMIN_WALLET, ADMIN_SUPPORT_GROUPS, ADMIN_AUDIT_TRAIL, ADMIN_PERMISSIONS
     ] as Permission[],
   },
@@ -107,7 +104,6 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/admin/members': PERMISSIONS.ADMIN_MEMBERS,
   '/admin/posts': PERMISSIONS.ADMIN_POSTS,
   '/admin/events': PERMISSIONS.ADMIN_EVENTS,
-  '/admin/polls': PERMISSIONS.ADMIN_POLLS,
   // Super Admin only routes
   '/admin/wallet': PERMISSIONS.ADMIN_WALLET,
   '/admin/orgs': PERMISSIONS.ADMIN_SUPPORT_GROUPS,
@@ -118,6 +114,10 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/platform-admin/movements': PERMISSIONS.PLATFORM_MOVEMENTS,
   '/platform-admin/super-admins': PERMISSIONS.PLATFORM_SUPER_ADMINS,
   '/platform-admin/users': PERMISSIONS.PLATFORM_USERS,
+  '/platform-admin/posts': PERMISSIONS.PLATFORM_MOVEMENTS,
+  '/platform-admin/events': PERMISSIONS.PLATFORM_MOVEMENTS,
+  '/platform-admin/audit': PERMISSIONS.PLATFORM_SETTINGS,
+  '/platform-admin/permissions': PERMISSIONS.PLATFORM_SETTINGS,
   '/platform-admin/settings': PERMISSIONS.PLATFORM_SETTINGS,
 }
 

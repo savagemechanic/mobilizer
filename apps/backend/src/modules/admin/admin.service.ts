@@ -3,7 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { OrgFilterInput } from './dto/org-filter.input';
 import { DateRangeInput } from './dto/date-range.input';
 import { DashboardStats, LevelDistribution } from './entities/dashboard-stats.entity';
-import { MemberAnalytics, GenderBreakdown, AgeGroup, LocationStat } from './entities/member-analytics.entity';
+import { MemberAnalytics, GenderBreakdown, AgeGroup, LocationStat, ProfessionStat, GeopoliticalZoneStat } from './entities/member-analytics.entity';
 import { TrendPoint } from './entities/trend-data.entity';
 import { WordCloudItem } from './entities/word-cloud.entity';
 import { PostAnalytics, PostTypeBreakdown } from './entities/post-analytics.entity';
@@ -15,9 +15,44 @@ export class AdminService {
   constructor(private prisma: PrismaService) {}
 
   /**
+   * Get LGA IDs based on zone filters (geopolitical, senatorial, federal constituency)
+   */
+  private async getLgaIdsFromZoneFilters(orgFilter: OrgFilterInput): Promise<string[] | null> {
+    // If geopolitical zone is specified, get all LGAs in that zone
+    // LGAs have a direct geopoliticalZoneId field in the schema
+    if (orgFilter.geopoliticalZoneId) {
+      const lgas = await this.prisma.lGA.findMany({
+        where: { geopoliticalZoneId: orgFilter.geopoliticalZoneId },
+        select: { id: true },
+      });
+      return lgas.map(l => l.id);
+    }
+
+    // If senatorial zone is specified, get all LGAs in that zone
+    if (orgFilter.senatorialZoneId) {
+      const lgas = await this.prisma.lGA.findMany({
+        where: { senatorialZoneId: orgFilter.senatorialZoneId },
+        select: { id: true },
+      });
+      return lgas.map(l => l.id);
+    }
+
+    // If federal constituency is specified, get all LGAs in that constituency
+    if (orgFilter.federalConstituencyId) {
+      const lgas = await this.prisma.lGA.findMany({
+        where: { federalConstituencyId: orgFilter.federalConstituencyId },
+        select: { id: true },
+      });
+      return lgas.map(l => l.id);
+    }
+
+    return null;
+  }
+
+  /**
    * Build a Prisma where clause based on org filter
    */
-  private buildOrgWhereClause(movementId: string, orgFilter?: OrgFilterInput) {
+  private async buildOrgWhereClause(movementId: string, orgFilter?: OrgFilterInput) {
     const where: any = {
       movementId,
       isActive: true,
@@ -36,9 +71,15 @@ export class AdminService {
       if (orgFilter.stateId) {
         where.stateId = orgFilter.stateId;
       }
-      if (orgFilter.lgaId) {
+
+      // Handle zone-based filters (these require LGA lookups)
+      const zoneLgaIds = await this.getLgaIdsFromZoneFilters(orgFilter);
+      if (zoneLgaIds) {
+        where.lgaId = { in: zoneLgaIds };
+      } else if (orgFilter.lgaId) {
         where.lgaId = orgFilter.lgaId;
       }
+
       if (orgFilter.wardId) {
         where.wardId = orgFilter.wardId;
       }
@@ -54,7 +95,7 @@ export class AdminService {
    * Get organization IDs that match the filter
    */
   private async getFilteredOrgIds(movementId: string, orgFilter?: OrgFilterInput): Promise<string[]> {
-    const where = this.buildOrgWhereClause(movementId, orgFilter);
+    const where = await this.buildOrgWhereClause(movementId, orgFilter);
 
     const orgs = await this.prisma.organization.findMany({
       where,
@@ -81,6 +122,7 @@ export class AdminService {
       where: {
         ...orgWhere,
         isActive: true,
+        isBlocked: false,
       },
       select: { userId: true },
       distinct: ['userId'],
@@ -127,6 +169,7 @@ export class AdminService {
         ...orgWhere,
         joinedAt: { gte: startOfMonth },
         isActive: true,
+        isBlocked: false,
       },
       select: { userId: true },
       distinct: ['userId'],
@@ -134,13 +177,10 @@ export class AdminService {
     const newMembersThisMonth = newMembersData.length;
 
     // Level distribution
+    const orgWhereClause = await this.buildOrgWhereClause(movementId, orgFilter);
     const levelDistributionData = await this.prisma.organization.groupBy({
       by: ['level'],
-      where: {
-        movementId,
-        isActive: true,
-        ...(orgFilter ? this.buildOrgWhereClause(movementId, orgFilter) : {}),
-      },
+      where: orgWhereClause,
       _count: true,
     });
 
@@ -148,6 +188,80 @@ export class AdminService {
       level: item.level,
       count: item._count,
     }));
+
+    // Calculate coverage statistics from members
+    // Get unique location IDs from all members
+    const members = await this.prisma.user.findMany({
+      where: {
+        memberships: {
+          some: {
+            ...orgWhere,
+            isActive: true,
+            isBlocked: false,
+          },
+        },
+      },
+      select: {
+        countryId: true,
+        stateId: true,
+        lgaId: true,
+        wardId: true,
+        pollingUnitId: true,
+      },
+    });
+
+    // Count unique locations
+    const uniqueCountries = new Set(members.map(m => m.countryId).filter(Boolean));
+    const uniqueStates = new Set(members.map(m => m.stateId).filter(Boolean));
+    const uniqueLgas = new Set(members.map(m => m.lgaId).filter(Boolean));
+    const uniqueWards = new Set(members.map(m => m.wardId).filter(Boolean));
+    const uniquePollingUnits = new Set(members.map(m => m.pollingUnitId).filter(Boolean));
+
+    const countriesCovered = uniqueCountries.size;
+    const statesCovered = uniqueStates.size;
+    const lgasCovered = uniqueLgas.size;
+    const wardsCovered = uniqueWards.size;
+    const pollingUnitsCovered = uniquePollingUnits.size;
+
+    // Get total counts for the country (or filtered country)
+    // Determine which country to use for totals
+    let totalStates = 0;
+    let totalLgas = 0;
+    let totalWards = 0;
+    let totalPollingUnits = 0;
+
+    let countryIdForTotals: string | null = null;
+
+    if (orgFilter?.countryId) {
+      // Use the filtered country
+      countryIdForTotals = orgFilter.countryId;
+    } else {
+      // Get the country from the movement's organizations
+      const firstOrg = await this.prisma.organization.findFirst({
+        where: {
+          movementId,
+          countryId: { not: null },
+        },
+        select: { countryId: true },
+      });
+      countryIdForTotals = firstOrg?.countryId || null;
+    }
+
+    // Count totals for the determined country
+    if (countryIdForTotals) {
+      totalStates = await this.prisma.state.count({
+        where: { countryId: countryIdForTotals },
+      });
+      totalLgas = await this.prisma.lGA.count({
+        where: { state: { countryId: countryIdForTotals } },
+      });
+      totalWards = await this.prisma.ward.count({
+        where: { lga: { state: { countryId: countryIdForTotals } } },
+      });
+      totalPollingUnits = await this.prisma.pollingUnit.count({
+        where: { ward: { lga: { state: { countryId: countryIdForTotals } } } },
+      });
+    }
 
     return {
       totalMembers,
@@ -157,21 +271,34 @@ export class AdminService {
       activeMembers,
       newMembersThisMonth,
       levelDistribution,
+      countriesCovered,
+      statesCovered,
+      lgasCovered,
+      wardsCovered,
+      pollingUnitsCovered,
+      totalStates,
+      totalLgas,
+      totalWards,
+      totalPollingUnits,
     };
   }
 
   /**
-   * Get member analytics with gender, age, and location breakdowns
+   * Get member analytics with gender, age, location, profession, and geopolitical zone breakdowns
    */
   async getMemberAnalytics(movementId: string, orgFilter?: OrgFilterInput): Promise<MemberAnalytics> {
     const genderBreakdown = await this.getGenderBreakdown(movementId, orgFilter);
     const ageBreakdown = await this.getAgeBreakdown(movementId, orgFilter);
     const locationBreakdown = await this.getLocationBreakdown(movementId, orgFilter);
+    const professionBreakdown = await this.getProfessionBreakdown(movementId, orgFilter);
+    const geopoliticalZoneBreakdown = await this.getGeopoliticalZoneBreakdown(movementId, orgFilter);
 
     return {
       genderBreakdown,
       ageBreakdown,
       locationBreakdown,
+      professionBreakdown,
+      geopoliticalZoneBreakdown,
     };
   }
 
@@ -334,6 +461,103 @@ export class AdminService {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10); // Top 10 locations
+  }
+
+  /**
+   * Get profession breakdown
+   */
+  async getProfessionBreakdown(movementId: string, orgFilter?: OrgFilterInput): Promise<ProfessionStat[]> {
+    const orgIds = await this.getFilteredOrgIds(movementId, orgFilter);
+
+    // Get unique user IDs from memberships
+    const memberships = await this.prisma.orgMembership.findMany({
+      where: {
+        orgId: { in: orgIds },
+        isActive: true,
+        isBlocked: false,
+      },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+
+    const userIds = memberships.map(m => m.userId);
+
+    // Get users with their profession
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+        profession: { not: null },
+      },
+      select: { profession: true },
+    });
+
+    // Count by profession
+    const professionCounts: { [key: string]: number } = {};
+
+    users.forEach(user => {
+      if (user.profession) {
+        professionCounts[user.profession] = (professionCounts[user.profession] || 0) + 1;
+      }
+    });
+
+    // Convert to array and sort by count
+    return Object.entries(professionCounts)
+      .map(([profession, count]) => ({ profession, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15); // Top 15 professions
+  }
+
+  /**
+   * Get geopolitical zone breakdown
+   */
+  async getGeopoliticalZoneBreakdown(movementId: string, orgFilter?: OrgFilterInput): Promise<GeopoliticalZoneStat[]> {
+    const orgIds = await this.getFilteredOrgIds(movementId, orgFilter);
+
+    // Get unique user IDs from memberships
+    const memberships = await this.prisma.orgMembership.findMany({
+      where: {
+        orgId: { in: orgIds },
+        isActive: true,
+        isBlocked: false,
+      },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+
+    const userIds = memberships.map(m => m.userId);
+
+    // Get users with their state and the state's geopolitical zone
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+        stateId: { not: null },
+      },
+      select: {
+        state: {
+          select: {
+            geopoliticalZone: {
+              select: { name: true, code: true },
+            },
+          },
+        },
+      },
+    });
+
+    // Count by geopolitical zone
+    const zoneCounts: { [key: string]: { name: string; code: string; count: number } } = {};
+
+    users.forEach(user => {
+      if (user.state?.geopoliticalZone) {
+        const zone = user.state.geopoliticalZone;
+        if (!zoneCounts[zone.code]) {
+          zoneCounts[zone.code] = { name: zone.name, code: zone.code, count: 0 };
+        }
+        zoneCounts[zone.code].count++;
+      }
+    });
+
+    // Convert to array and sort by count
+    return Object.values(zoneCounts).sort((a, b) => b.count - a.count);
   }
 
   /**

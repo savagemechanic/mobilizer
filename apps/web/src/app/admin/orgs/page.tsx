@@ -12,6 +12,7 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  Settings,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card'
 import { Button } from '@/ui/button'
@@ -269,6 +270,7 @@ export default function AdminOrgsPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Level</TableHead>
                     <TableHead>Members</TableHead>
+                    <TableHead>Privacy</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -282,6 +284,11 @@ export default function AdminOrgsPage() {
                         <Badge variant="outline">{formatLevel(org.level)}</Badge>
                       </TableCell>
                       <TableCell>{org.memberCount || 0}</TableCell>
+                      <TableCell>
+                        <Badge variant={org.isPrivate ? 'secondary' : 'outline'}>
+                          {org.isPrivate ? 'Private' : 'Public'}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <Badge variant={org.isActive ? 'success' : 'destructive'}>
                           {org.isActive ? 'Active' : 'Inactive'}
@@ -302,9 +309,16 @@ export default function AdminOrgsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => router.push(`/admin/orgs/${org.id}?mode=edit`)}
+                            onClick={() => router.push(`/admin/orgs/${org.id}/edit`)}
                           >
                             <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/admin/orgs/${org.id}/settings`)}
+                          >
+                            <Settings className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="outline"

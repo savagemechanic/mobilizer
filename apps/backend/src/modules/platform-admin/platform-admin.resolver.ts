@@ -117,4 +117,13 @@ export class PlatformAdminResolver {
   ): Promise<any> {
     return this.platformAdminService.setPublicOrgId(orgId, currentUser.id);
   }
+
+  @Mutation(() => PlatformSettingsEntity)
+  @PlatformAdmin()
+  async updateSupportGroupDisplayName(
+    @CurrentUser() currentUser: any,
+    @Args('displayName') displayName: string,
+  ): Promise<any> {
+    return this.platformAdminService.updateSupportGroupDisplayName(displayName, currentUser.id);
+  }
 }

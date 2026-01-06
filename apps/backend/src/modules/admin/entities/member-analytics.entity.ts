@@ -34,6 +34,27 @@ export class LocationStat {
 }
 
 @ObjectType()
+export class ProfessionStat {
+  @Field()
+  profession: string;
+
+  @Field(() => Int)
+  count: number;
+}
+
+@ObjectType()
+export class GeopoliticalZoneStat {
+  @Field()
+  name: string;
+
+  @Field()
+  code: string;
+
+  @Field(() => Int)
+  count: number;
+}
+
+@ObjectType()
 export class MemberAnalytics {
   @Field(() => GenderBreakdown)
   genderBreakdown: GenderBreakdown;
@@ -43,4 +64,10 @@ export class MemberAnalytics {
 
   @Field(() => [LocationStat])
   locationBreakdown: LocationStat[];
+
+  @Field(() => [ProfessionStat])
+  professionBreakdown: ProfessionStat[];
+
+  @Field(() => [GeopoliticalZoneStat])
+  geopoliticalZoneBreakdown: GeopoliticalZoneStat[];
 }

@@ -311,11 +311,12 @@ model MovementWallet {
 // ============================================
 
 model PlatformSettings {
-  id                String    @id @default("default")
-  publicOrgEnabled  Boolean   @default(true)
-  publicOrgId       String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                      String    @id @default("default")
+  publicOrgEnabled        Boolean   @default(true)
+  publicOrgId             String?
+  supportGroupDisplayName String    @default("Support Group")  // Can be changed to "Organization" etc.
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   @@map("platform_settings")
 }
@@ -338,6 +339,11 @@ model Organization {
   inviteCode      String?   @unique
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  // Privacy and membership settings
+  isPrivate              Boolean   @default(false)  // Requires invite code to join
+  requiresConfirmation   Boolean   @default(false)  // Membership needs admin approval
+  enabledLocationLevels  String[]  @default(["COUNTRY", "GEOPOLITICAL_ZONE", "STATE", "SENATORIAL_ZONE", "FEDERAL_CONSTITUENCY", "LGA", "WARD", "POLLING_UNIT"])  // Which levels are active for this org
 
   // Movement relationship (required - every support group belongs to a movement)
   movementId      String
@@ -365,6 +371,7 @@ model Organization {
   memberships     OrgMembership[]
   posts           Post[]
   events          Event[]
+  wallet          OrgWallet?
 
   @@index([slug])
   @@index([level])
@@ -386,8 +393,20 @@ model OrgMembership {
   approvedBy     String?
   isActive       Boolean   @default(true)
 
+  // Member verification (for closed/private groups)
+  isVerified     Boolean   @default(false)
+  verifiedAt     DateTime?
+  verifiedBy     String?
+
+  // Block status
+  isBlocked      Boolean   @default(false)
+  blockedAt      DateTime?
+  blockedBy      String?
+  blockedReason  String?
+
   // Leader fields
   isLeader           Boolean      @default(false)
+  isChairman         Boolean      @default(false)  // Chairman has wallet access
   leaderLevel        LeaderLevel?
   leaderStateId      String?
   leaderLgaId        String?
@@ -411,6 +430,8 @@ model OrgMembership {
   @@index([orgId])
   @@index([isActive])
   @@index([isLeader])
+  @@index([isBlocked])
+  @@index([isVerified])
   @@map("org_memberships")
 }
 
@@ -877,6 +898,49 @@ model Disbursement {
   @@map("disbursements")
 }
 
+// Organization-level wallet (for support groups)
+model OrgWallet {
+  id             String        @id @default(uuid())
+  orgId          String        @unique
+  balance        Decimal       @default(0) @db.Decimal(15, 2)
+  ledgerBalance  Decimal       @default(0) @db.Decimal(15, 2)
+  status         WalletStatus  @default(ACTIVE)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  transactions   OrgTransaction[]
+
+  @@index([orgId])
+  @@map("org_wallets")
+}
+
+model OrgTransaction {
+  id              String             @id @default(uuid())
+  walletId        String
+  type            TransactionType
+  amount          Decimal            @db.Decimal(15, 2)
+  balanceBefore   Decimal            @db.Decimal(15, 2)
+  balanceAfter    Decimal            @db.Decimal(15, 2)
+  status          TransactionStatus  @default(PENDING)
+  reference       String             @unique
+  description     String?
+  metadata        Json?
+  // For member disbursements
+  recipientUserId String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  wallet          OrgWallet          @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([reference])
+  @@index([status])
+  @@index([recipientUserId])
+  @@index([createdAt])
+  @@map("org_transactions")
+}
+
 // ============================================
 // LOCATION MODELS
 // ============================================
@@ -887,49 +951,110 @@ model Country {
   code      String   @unique
   createdAt DateTime @default(now())
 
-  states        State[]
-  users         User[]
-  organizations Organization[]
-  posts         Post[]
+  states             State[]
+  geopoliticalZones  GeopoliticalZone[]
+  users              User[]
+  organizations      Organization[]
+  posts              Post[]
 
   @@map("countries")
 }
 
-model State {
+model GeopoliticalZone {
   id        String   @id @default(uuid())
   countryId String
   name      String
-  code      String
+  code      String   // e.g., "NE", "NW", "NC", "SE", "SW", "SS"
   createdAt DateTime @default(now())
 
-  country       Country        @relation(fields: [countryId], references: [id], onDelete: Cascade)
-  lgas          LGA[]
-  users         User[]
-  organizations Organization[]
-  posts         Post[]
-  leaderMemberships OrgMembership[] @relation("LeaderState")
+  country   Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  states    State[]
+  lgas      LGA[]
 
   @@unique([countryId, code])
   @@index([countryId])
+  @@map("geopolitical_zones")
+}
+
+model State {
+  id                 String   @id @default(uuid())
+  countryId          String
+  geopoliticalZoneId String?
+  name               String
+  code               String
+  createdAt          DateTime @default(now())
+
+  country              Country           @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  geopoliticalZone     GeopoliticalZone? @relation(fields: [geopoliticalZoneId], references: [id])
+  lgas                 LGA[]
+  senatorialZones      SenatorialZone[]
+  federalConstituencies FederalConstituency[]
+  users                User[]
+  organizations        Organization[]
+  posts                Post[]
+  leaderMemberships    OrgMembership[] @relation("LeaderState")
+
+  @@unique([countryId, code])
+  @@index([countryId])
+  @@index([geopoliticalZoneId])
   @@map("states")
 }
 
-model LGA {
+model SenatorialZone {
   id        String   @id @default(uuid())
   stateId   String
   name      String
-  code      String
+  code      String   // e.g., "ABIA-NORTH", "ABIA-CENTRAL", "ABIA-SOUTH"
   createdAt DateTime @default(now())
 
-  state         State          @relation(fields: [stateId], references: [id], onDelete: Cascade)
-  wards         Ward[]
-  users         User[]
-  organizations Organization[]
-  posts         Post[]
-  leaderMemberships OrgMembership[] @relation("LeaderLGA")
+  state     State    @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  lgas      LGA[]
 
   @@unique([stateId, code])
   @@index([stateId])
+  @@map("senatorial_zones")
+}
+
+model FederalConstituency {
+  id        String   @id @default(uuid())
+  stateId   String
+  name      String
+  code      String   // e.g., "ABA-NORTH-ABA-SOUTH"
+  createdAt DateTime @default(now())
+
+  state     State    @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  lgas      LGA[]
+
+  @@unique([stateId, code])
+  @@index([stateId])
+  @@map("federal_constituencies")
+}
+
+model LGA {
+  id                    String   @id @default(uuid())
+  stateId               String
+  geopoliticalZoneId    String?
+  senatorialZoneId      String?
+  federalConstituencyId String?
+  name                  String
+  code                  String
+  createdAt             DateTime @default(now())
+
+  state               State                @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  geopoliticalZone    GeopoliticalZone?    @relation(fields: [geopoliticalZoneId], references: [id])
+  senatorialZone      SenatorialZone?      @relation(fields: [senatorialZoneId], references: [id])
+  federalConstituency FederalConstituency? @relation(fields: [federalConstituencyId], references: [id])
+  wards               Ward[]
+  users               User[]
+  organizations       Organization[]
+  posts               Post[]
+  leaderMemberships   OrgMembership[] @relation("LeaderLGA")
+
+  @@unique([stateId, code])
+  @@index([stateId])
+  @@index([geopoliticalZoneId])
+  @@index([senatorialZoneId])
+  @@index([federalConstituencyId])
   @@map("lgas")
 }
 

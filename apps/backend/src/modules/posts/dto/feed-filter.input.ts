@@ -32,4 +32,9 @@ export class FeedFilterInput {
   @IsOptional()
   @IsString()
   pollingUnitId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  authorId?: string;
 }

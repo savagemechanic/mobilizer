@@ -499,4 +499,35 @@ export class PlatformAdminService {
 
     return settings;
   }
+
+  /**
+   * Update support group display name terminology
+   */
+  async updateSupportGroupDisplayName(displayName: string, userId: string) {
+    const settings = await this.prisma.platformSettings.upsert({
+      where: { id: 'default' },
+      update: { supportGroupDisplayName: displayName },
+      create: {
+        id: 'default',
+        publicOrgEnabled: true,
+        supportGroupDisplayName: displayName,
+      },
+    });
+
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'UPDATE',
+        entityType: 'PlatformSettings',
+        entityId: 'default',
+        metadata: {
+          action: 'update_support_group_display_name',
+          supportGroupDisplayName: displayName,
+        },
+      },
+    });
+
+    return settings;
+  }
 }

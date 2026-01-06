@@ -145,8 +145,171 @@ export const GET_PLATFORM_SETTINGS = gql`
       id
       publicOrgEnabled
       publicOrgId
+      supportGroupDisplayName
       createdAt
       updatedAt
+    }
+  }
+`
+
+export const GET_PLATFORM_POSTS = gql`
+  query GetPlatformPosts($limit: Float, $offset: Float, $filter: FeedFilterInput) {
+    feed(limit: $limit, offset: $offset, filter: $filter) {
+      id
+      content
+      type
+      authorId
+      orgId
+      isPublished
+      likeCount
+      commentCount
+      shareCount
+      viewCount
+      mediaUrls
+      createdAt
+      updatedAt
+      author {
+        id
+        firstName
+        lastName
+        displayName
+        avatar
+      }
+      organization {
+        id
+        name
+        logo
+        movementId
+        movement {
+          id
+          name
+          slug
+        }
+      }
+      poll {
+        id
+        postId
+        question
+        endsAt
+        allowMultiple
+        createdAt
+        options {
+          id
+          pollId
+          text
+          voteCount
+        }
+      }
+    }
+  }
+`
+
+export const GET_PLATFORM_ORGANIZATIONS = gql`
+  query GetPlatformOrganizations($filter: OrganizationFilterInput, $limit: Float, $offset: Float) {
+    organizations(filter: $filter, limit: $limit, offset: $offset) {
+      id
+      name
+      slug
+      description
+      logo
+      level
+      memberCount
+      isActive
+      isPrivate
+      movementId
+      countryId
+      stateId
+      lgaId
+      wardId
+      pollingUnitId
+      movement {
+        id
+        name
+        slug
+      }
+      country {
+        id
+        name
+      }
+      state {
+        id
+        name
+      }
+      lga {
+        id
+        name
+      }
+      ward {
+        id
+        name
+      }
+      pollingUnit {
+        id
+        name
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+export const GET_PLATFORM_EVENTS = gql`
+  query GetPlatformEvents($limit: Float, $offset: Float, $orgId: String) {
+    events(limit: $limit, offset: $offset, orgId: $orgId) {
+      id
+      title
+      description
+      type
+      startTime
+      endTime
+      location
+      isVirtual
+      virtualLink
+      banner
+      isPublished
+      creatorId
+      orgId
+      createdAt
+      updatedAt
+      creator {
+        id
+        firstName
+        lastName
+        displayName
+        avatar
+      }
+      organization {
+        id
+        name
+        logo
+        level
+        movementId
+        movement {
+          id
+          name
+          slug
+        }
+        country {
+          id
+          name
+        }
+        state {
+          id
+          name
+        }
+        lga {
+          id
+          name
+        }
+        ward {
+          id
+          name
+        }
+        pollingUnit {
+          id
+          name
+        }
+      }
     }
   }
 `

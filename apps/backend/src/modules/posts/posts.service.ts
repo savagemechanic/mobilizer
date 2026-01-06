@@ -53,8 +53,11 @@ export class PostsService {
       if (filter?.wardId) whereClause.wardId = filter.wardId;
       if (filter?.pollingUnitId) whereClause.pollingUnitId = filter.pollingUnitId;
 
-      // If filtering by specific organization, only show posts from that org
-      if (filter?.orgId) {
+      // If filtering by specific author, only show posts from that author
+      if (filter?.authorId) {
+        whereClause.authorId = filter.authorId;
+      } else if (filter?.orgId) {
+        // If filtering by specific organization, only show posts from that org
         whereClause.orgId = filter.orgId;
       } else if (!filter?.countryId && !filter?.stateId && !filter?.lgaId && !filter?.wardId && !filter?.pollingUnitId) {
         // No location or org filters - show posts from followed users and user's organizations

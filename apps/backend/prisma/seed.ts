@@ -1,11 +1,13 @@
 import { PrismaClient, Gender, OrgLevel } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { seedLocations } from './seeders/locations-batch';
+import { seedLocationMapping } from './seeders/location-mapping';
 
 const prisma = new PrismaClient();
 
 // Check if we should seed full locations from SQL file
 const SEED_FULL_LOCATIONS = process.env.SEED_FULL_LOCATIONS === 'true' || process.argv.includes('--full-locations');
+const SEED_LOCATION_MAPPING = process.env.SEED_LOCATION_MAPPING === 'true' || process.argv.includes('--location-mapping');
 
 /**
  * Generate a unique 3-letter uppercase invite code
@@ -92,6 +94,12 @@ async function main() {
   if (SEED_FULL_LOCATIONS) {
     console.log('\n🌍 Full location seeding enabled (this may take 10-15 minutes)...\n');
     await seedLocations();
+  }
+
+  // Seed location mapping (geopolitical zones, senatorial zones, federal constituencies)
+  if (SEED_LOCATION_MAPPING) {
+    console.log('\n🗺️ Location mapping seeding enabled...\n');
+    await seedLocationMapping();
   }
 
   // Always create Nigeria for sample data and test users
@@ -838,6 +846,9 @@ async function main() {
   console.log('- Youth Empowerment Movement');
   console.log("- Women's Development Coalition");
   console.log('- Community Health Initiative');
+  console.log('\nLocation Seeding:');
+  console.log('- Run with --full-locations to seed all Nigerian locations');
+  console.log('- Run with --location-mapping to seed zone mappings (requires full locations first)');
   console.log('========================================\n');
 }
 

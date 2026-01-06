@@ -1,5 +1,5 @@
 import { InputType, Field, registerEnumType } from '@nestjs/graphql';
-import { IsNotEmpty, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsEnum, IsOptional, IsString, IsBoolean } from 'class-validator';
 import { LeaderLevel } from '@prisma/client';
 
 // Register the enum with GraphQL
@@ -38,4 +38,9 @@ export class MakeLeaderInput {
   @IsOptional()
   @IsString()
   pollingUnitId?: string;
+
+  @Field({ nullable: true, defaultValue: false })
+  @IsOptional()
+  @IsBoolean()
+  isChairman?: boolean;
 }

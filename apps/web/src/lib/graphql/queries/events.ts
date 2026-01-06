@@ -18,6 +18,18 @@ export const GET_EVENTS = gql`
       orgId
       createdAt
       updatedAt
+      creator {
+        id
+        firstName
+        lastName
+        displayName
+        avatar
+      }
+      organization {
+        id
+        name
+        logo
+      }
     }
   }
 `

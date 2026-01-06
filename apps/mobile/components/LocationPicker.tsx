@@ -8,6 +8,7 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
+  Keyboard,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useQuery, useLazyQuery } from '@apollo/client';
@@ -53,8 +54,8 @@ export default function LocationPicker({
   const isInitialLoad = useRef(true);
   const hasInitialized = useRef(false);
 
-  // Input mode toggle - default to dropdown (Select Manually)
-  const [inputMode, setInputMode] = useState<InputMode>('dropdown');
+  // Input mode toggle - default to PVC code
+  const [inputMode, setInputMode] = useState<InputMode>('pvc');
 
   // Code input state
   const [locationCode, setLocationCode] = useState('');
@@ -202,6 +203,7 @@ export default function LocationPicker({
 
   // Handle code lookup
   const handleCodeLookup = () => {
+    Keyboard.dismiss();
     if (!locationCode.trim()) {
       setCodeError('Please enter a location code');
       return;
@@ -279,17 +281,8 @@ export default function LocationPicker({
 
   return (
     <View style={styles.container}>
-      {/* Mode Toggle - Select Manually first, Use PVC Code second */}
+      {/* Mode Toggle - Use PVC Code first (left), Select Manually second (right) */}
       <View style={styles.modeToggle}>
-        <TouchableOpacity
-          style={[styles.modeButton, inputMode === 'dropdown' && styles.modeButtonActive]}
-          onPress={() => setInputMode('dropdown')}
-          disabled={disabled}
-        >
-          <Text style={[styles.modeButtonText, inputMode === 'dropdown' && styles.modeButtonTextActive]}>
-            Select Manually
-          </Text>
-        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.modeButton, inputMode === 'pvc' && styles.modeButtonActive]}
           onPress={() => setInputMode('pvc')}
@@ -297,6 +290,15 @@ export default function LocationPicker({
         >
           <Text style={[styles.modeButtonText, inputMode === 'pvc' && styles.modeButtonTextActive]}>
             Use PVC Code
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modeButton, inputMode === 'dropdown' && styles.modeButtonActive]}
+          onPress={() => setInputMode('dropdown')}
+          disabled={disabled}
+        >
+          <Text style={[styles.modeButtonText, inputMode === 'dropdown' && styles.modeButtonTextActive]}>
+            Select Manually
           </Text>
         </TouchableOpacity>
       </View>
@@ -312,7 +314,7 @@ export default function LocationPicker({
               resizeMode="contain"
             />
             <Text style={styles.pvcImageCaption}>
-              Enter the CODE shown on your PVC (circled above)
+              Enter your PVC location code (like the one circled above).{'\n'}If you don't have it, press Select Manually to select your location.
             </Text>
           </View>
 
@@ -342,7 +344,7 @@ export default function LocationPicker({
               {codeLookupLoading ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
-                <Text style={styles.lookupButtonText}>Lookup</Text>
+                <Text style={styles.lookupButtonText}>Enter</Text>
               )}
             </TouchableOpacity>
           </View>

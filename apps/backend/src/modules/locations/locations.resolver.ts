@@ -3,6 +3,9 @@ import { LocationsService } from './locations.service';
 import {
   Country,
   State,
+  GeopoliticalZone,
+  SenatorialZone,
+  FederalConstituency,
   LGA,
   Ward,
   PollingUnit,
@@ -46,14 +49,64 @@ export class LocationsResolver {
   }
 
   // ============================================
+  // GEOPOLITICAL ZONES (Public - for dashboard filtering)
+  // ============================================
+
+  @Query(() => [GeopoliticalZone], { name: 'geopoliticalZones' })
+  async geopoliticalZones(
+    @Args('countryId', { type: () => String, nullable: true }) countryId?: string,
+  ) {
+    return this.locationsService.getGeopoliticalZones(countryId);
+  }
+
+  @Query(() => GeopoliticalZone, { name: 'geopoliticalZone', nullable: true })
+  async geopoliticalZone(@Args('id', { type: () => String }) id: string) {
+    return this.locationsService.getGeopoliticalZone(id);
+  }
+
+  // ============================================
+  // SENATORIAL ZONES (Public - for dashboard filtering)
+  // ============================================
+
+  @Query(() => [SenatorialZone], { name: 'senatorialZones' })
+  async senatorialZones(
+    @Args('stateId', { type: () => String, nullable: true }) stateId?: string,
+  ) {
+    return this.locationsService.getSenatorialZones(stateId);
+  }
+
+  @Query(() => SenatorialZone, { name: 'senatorialZone', nullable: true })
+  async senatorialZone(@Args('id', { type: () => String }) id: string) {
+    return this.locationsService.getSenatorialZone(id);
+  }
+
+  // ============================================
+  // FEDERAL CONSTITUENCIES (Public - for dashboard filtering)
+  // ============================================
+
+  @Query(() => [FederalConstituency], { name: 'federalConstituencies' })
+  async federalConstituencies(
+    @Args('stateId', { type: () => String, nullable: true }) stateId?: string,
+  ) {
+    return this.locationsService.getFederalConstituencies(stateId);
+  }
+
+  @Query(() => FederalConstituency, { name: 'federalConstituency', nullable: true })
+  async federalConstituency(@Args('id', { type: () => String }) id: string) {
+    return this.locationsService.getFederalConstituency(id);
+  }
+
+  // ============================================
   // LGAs (Public - needed for registration)
   // ============================================
 
   @Query(() => [LGA], { name: 'lgas' })
   async lgas(
     @Args('stateId', { type: () => String, nullable: true }) stateId?: string,
+    @Args('senatorialZoneId', { type: () => String, nullable: true }) senatorialZoneId?: string,
+    @Args('federalConstituencyId', { type: () => String, nullable: true }) federalConstituencyId?: string,
   ) {
-    return this.locationsService.getLGAs(stateId);
+    return this.locationsService.getLGAs(stateId, senatorialZoneId, federalConstituencyId);
   }
 
   @Query(() => LGA, { name: 'lga', nullable: true })

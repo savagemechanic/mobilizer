@@ -1,15 +1,29 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@apollo/client'
 import Link from 'next/link'
-import { Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
-import { GET_ALL_USERS } from '@/lib/graphql/queries/platform-admin'
+import { Search, ChevronLeft, ChevronRight, Eye, UserCheck, UserX, Crown } from 'lucide-react'
+import { useAuthStore } from '@/store/auth-store'
+import { usePermissions } from '@/hooks/usePermissions'
+import { GET_ORG_MEMBERS } from '@/lib/graphql/queries/admin'
+import { GET_MOVEMENTS } from '@/lib/graphql/queries/platform-admin'
+import {
+  GET_COUNTRIES,
+  GET_GEOPOLITICAL_ZONES,
+  GET_STATES,
+  GET_SENATORIAL_ZONES,
+  GET_FEDERAL_CONSTITUENCIES,
+  GET_LGAS,
+  GET_WARDS,
+  GET_POLLING_UNITS,
+} from '@/lib/graphql/queries/locations'
 import { Avatar, AvatarFallback, AvatarImage } from '@/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card'
 import { Button } from '@/ui/button'
 import { Input } from '@/ui/input'
 import { Badge } from '@/ui/badge'
+import { Label } from '@/ui/label'
 import {
   Select,
   SelectContent,
@@ -19,77 +33,188 @@ import {
 } from '@/ui/select'
 import { ListPageTemplate } from '@/templates'
 
-interface User {
+interface OrgMember {
   id: string
-  email: string
-  firstName: string
-  lastName: string
-  displayName?: string
-  avatar?: string
-  isPlatformAdmin: boolean
+  userId: string
+  orgId: string
+  isAdmin: boolean
   isActive: boolean
-  isEmailVerified: boolean
-  createdAt: string
+  isVerified: boolean
+  isBlocked: boolean
+  isLeader: boolean
+  isChairman: boolean
+  leaderLevel?: string
+  joinedAt: string
+  user: {
+    id: string
+    firstName: string
+    lastName: string
+    displayName?: string
+    email: string
+    avatar?: string
+    phoneNumber?: string
+    profession?: string
+    gender?: string
+    state?: { name: string }
+    lga?: { name: string }
+    ward?: { name: string }
+  }
+  organization: {
+    id: string
+    name: string
+    level: string
+    slug: string
+    logo?: string
+  }
 }
 
 const ITEMS_PER_PAGE = 20
 
 export default function AdminMembersPage() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [roleFilter, setRoleFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  // Get current user and role information
+  const user = useAuthStore((state) => state.user)
+  const { isPlatformAdmin, isSuperAdmin } = usePermissions()
+
+  // Movement filter
+  const [movementId, setMovementId] = useState<string | null>(null)
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null)
+
+  // Location filters
+  const [countryId, setCountryId] = useState<string | null>(null)
+  const [geopoliticalZoneId, setGeopoliticalZoneId] = useState<string | null>(null)
+  const [stateId, setStateId] = useState<string | null>(null)
+  const [senatorialZoneId, setSenatorialZoneId] = useState<string | null>(null)
+  const [federalConstituencyId, setFederalConstituencyId] = useState<string | null>(null)
+  const [lgaId, setLgaId] = useState<string | null>(null)
+  const [wardId, setWardId] = useState<string | null>(null)
+  const [pollingUnitId, setPollingUnitId] = useState<string | null>(null)
+
+  // Gender and Profession filters
+  const [genderFilter, setGenderFilter] = useState<string | null>(null)
+  const [professionFilter, setProfessionFilter] = useState<string | null>(null)
 
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery)
-      setCurrentPage(1) // Reset to first page on search
+      setCurrentPage(1)
     }, 300)
 
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  // Build filter object
-  const buildFilter = () => {
-    const filter: any = {}
+  // Fetch movements (for selecting organization)
+  const { data: movementsData } = useQuery(GET_MOVEMENTS, {
+    variables: { filter: { isActive: true } },
+  })
 
-    if (debouncedSearch) {
-      filter.search = debouncedSearch
-    }
-
-    if (statusFilter === 'active') {
-      filter.isActive = true
-    } else if (statusFilter === 'inactive') {
-      filter.isActive = false
-    }
-
-    if (roleFilter === 'admin') {
-      filter.isPlatformAdmin = true
-    } else if (roleFilter === 'user') {
-      filter.isPlatformAdmin = false
-    }
-
-    return filter
-  }
-
-  const { data, loading, error } = useQuery(GET_ALL_USERS, {
+  // Fetch location data
+  const { data: countriesData } = useQuery(GET_COUNTRIES)
+  const { data: geoZonesData } = useQuery(GET_GEOPOLITICAL_ZONES, {
+    variables: { countryId },
+    skip: !countryId,
+  })
+  const { data: statesData } = useQuery(GET_STATES, {
+    variables: { countryId },
+    skip: !countryId,
+  })
+  const { data: senatorialZonesData } = useQuery(GET_SENATORIAL_ZONES, {
+    variables: { stateId },
+    skip: !stateId,
+  })
+  const { data: federalConstData } = useQuery(GET_FEDERAL_CONSTITUENCIES, {
+    variables: { stateId },
+    skip: !stateId,
+  })
+  const { data: lgasData } = useQuery(GET_LGAS, {
     variables: {
-      filter: buildFilter(),
-      pagination: {
-        limit: ITEMS_PER_PAGE,
-        offset: (currentPage - 1) * ITEMS_PER_PAGE,
-      },
+      stateId,
+      senatorialZoneId: senatorialZoneId || undefined,
+      federalConstituencyId: federalConstituencyId || undefined,
     },
+    skip: !stateId,
+  })
+  const { data: wardsData } = useQuery(GET_WARDS, {
+    variables: { lgaId },
+    skip: !lgaId,
+  })
+  const { data: pollingUnitsData } = useQuery(GET_POLLING_UNITS, {
+    variables: { wardId },
+    skip: !wardId,
+  })
+
+  const movements = movementsData?.movements || []
+  const countries = countriesData?.countries || []
+  const geoZones = geoZonesData?.geopoliticalZones || []
+  const states = statesData?.states || []
+  const senatorialZones = senatorialZonesData?.senatorialZones || []
+  const federalConstituencies = federalConstData?.federalConstituencies || []
+  const lgas = lgasData?.lgas || []
+  const wards = wardsData?.wards || []
+  const pollingUnits = pollingUnitsData?.pollingUnits || []
+
+  const { data, loading, error } = useQuery(GET_ORG_MEMBERS, {
+    variables: {
+      orgId: selectedOrgId || '',
+      search: debouncedSearch || undefined,
+      limit: ITEMS_PER_PAGE,
+      offset: (currentPage - 1) * ITEMS_PER_PAGE,
+    },
+    skip: !selectedOrgId,
     fetchPolicy: 'cache-and-network',
   })
 
-  const users = data?.allUsers?.items || []
-  const totalCount = data?.allUsers?.totalCount || 0
+  // Client-side filtering for gender and profession
+  let filteredMembers = data?.getOrgMembers || []
+
+  if (genderFilter) {
+    filteredMembers = filteredMembers.filter((m: OrgMember) => m.user.gender === genderFilter)
+  }
+
+  if (professionFilter) {
+    filteredMembers = filteredMembers.filter((m: OrgMember) => m.user.profession === professionFilter)
+  }
+
+  // Sort alphabetically by surname (lastName)
+  const sortedMembers = [...filteredMembers].sort((a, b) => {
+    const lastNameA = (a.user.lastName || '').toLowerCase()
+    const lastNameB = (b.user.lastName || '').toLowerCase()
+    return lastNameA.localeCompare(lastNameB)
+  })
+
+  // Extract unique professions from members for filter dropdown
+  const uniqueProfessions = Array.from(
+    new Set(
+      (data?.getOrgMembers || [])
+        .map((m: OrgMember) => m.user.profession)
+        .filter(Boolean)
+    )
+  ).sort()
+
+  const members = sortedMembers
+  const totalCount = members.length
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
   const startItem = totalCount > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0
   const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
+
+  // Determine if the current user is a Support Group Admin for the selected organization
+  // Platform Admin and Super Admin should NOT see action buttons (read-only view)
+  // Only Support Group Admin should see action buttons
+  const currentUserMembership = useMemo(() => {
+    if (!user?.id || !selectedOrgId || !data?.getOrgMembers) return null
+    return (data.getOrgMembers as OrgMember[]).find((m: OrgMember) => m.userId === user.id)
+  }, [user?.id, selectedOrgId, data?.getOrgMembers])
+
+  const isSupportGroupAdmin = useMemo(() => {
+    // Platform Admin and Super Admin should NOT see action buttons
+    if (isPlatformAdmin || isSuperAdmin) return false
+    // Only show actions if user is an admin of this specific organization
+    return currentUserMembership?.isAdmin === true
+  }, [isPlatformAdmin, isSuperAdmin, currentUserMembership])
 
   const handlePreviousPage = () => {
     if (currentPage > 1) {
@@ -104,57 +229,307 @@ export default function AdminMembersPage() {
   }
 
   const handleFilterChange = () => {
-    setCurrentPage(1) // Reset to first page when filters change
+    setCurrentPage(1)
   }
 
   const filterSection = (
-    <div className="flex flex-col sm:flex-row gap-4 w-full">
+    <div className="space-y-4">
+      {/* Organization Selection */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Movement</Label>
+          <Select
+            value={movementId || 'none'}
+            onValueChange={(value) => {
+              setMovementId(value === 'none' ? null : value)
+              setSelectedOrgId(null)
+              handleFilterChange()
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select Movement" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Select Movement</SelectItem>
+              {movements.map((movement: any) => (
+                <SelectItem key={movement.id} value={movement.id}>
+                  {movement.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Organization (Required)</Label>
+          <Select
+            value={selectedOrgId || 'none'}
+            onValueChange={(value) => {
+              setSelectedOrgId(value === 'none' ? null : value)
+              handleFilterChange()
+            }}
+            disabled={!movementId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select Organization" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Select Organization</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {/* Search Input */}
-      <div className="relative flex-1">
+      <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search by name or email..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9"
+          disabled={!selectedOrgId}
         />
       </div>
 
-      {/* Status Filter */}
-      <Select
-        value={statusFilter}
-        onValueChange={(value) => {
-          setStatusFilter(value)
-          handleFilterChange()
-        }}
-      >
-        <SelectTrigger className="w-full sm:w-[180px]">
-          <SelectValue placeholder="Filter by status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Status</SelectItem>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="inactive">Inactive</SelectItem>
-        </SelectContent>
-      </Select>
+      {/* Gender and Profession Filters */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Gender</Label>
+          <Select
+            value={genderFilter || 'all'}
+            onValueChange={(value) => {
+              setGenderFilter(value === 'all' ? null : value)
+              setCurrentPage(1)
+            }}
+            disabled={!selectedOrgId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="All Genders" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Genders</SelectItem>
+              <SelectItem value="MALE">Male</SelectItem>
+              <SelectItem value="FEMALE">Female</SelectItem>
+              <SelectItem value="OTHER">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-      {/* Role Filter */}
-      <Select
-        value={roleFilter}
-        onValueChange={(value) => {
-          setRoleFilter(value)
-          handleFilterChange()
-        }}
-      >
-        <SelectTrigger className="w-full sm:w-[180px]">
-          <SelectValue placeholder="Filter by role" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Roles</SelectItem>
-          <SelectItem value="admin">Platform Admin</SelectItem>
-          <SelectItem value="user">Regular User</SelectItem>
-        </SelectContent>
-      </Select>
+        <div className="space-y-2">
+          <Label>Profession</Label>
+          <Select
+            value={professionFilter || 'all'}
+            onValueChange={(value) => {
+              setProfessionFilter(value === 'all' ? null : value)
+              setCurrentPage(1)
+            }}
+            disabled={!selectedOrgId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="All Professions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Professions</SelectItem>
+              {uniqueProfessions.map((profession: string) => (
+                <SelectItem key={profession} value={profession}>
+                  {profession}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Location Filters */}
+      <div className="space-y-3">
+        <Label className="text-sm font-medium">Filter by Location (Optional)</Label>
+
+        {/* Row 1: Country, Geopolitical Zone, State */}
+        <div className="grid gap-3 md:grid-cols-3">
+          <Select
+            value={countryId || 'all'}
+            onValueChange={(value) => {
+              setCountryId(value === 'all' ? null : value)
+              setGeopoliticalZoneId(null)
+              setStateId(null)
+              setSenatorialZoneId(null)
+              setFederalConstituencyId(null)
+              setLgaId(null)
+              setWardId(null)
+              setPollingUnitId(null)
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Country" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Countries</SelectItem>
+              {countries.map((country: any) => (
+                <SelectItem key={country.id} value={country.id}>
+                  {country.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={geopoliticalZoneId || 'all'}
+            onValueChange={(value) => setGeopoliticalZoneId(value === 'all' ? null : value)}
+            disabled={!countryId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Geopolitical Zone" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Zones</SelectItem>
+              {geoZones.map((zone: any) => (
+                <SelectItem key={zone.id} value={zone.id}>
+                  {zone.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={stateId || 'all'}
+            onValueChange={(value) => {
+              setStateId(value === 'all' ? null : value)
+              setSenatorialZoneId(null)
+              setFederalConstituencyId(null)
+              setLgaId(null)
+              setWardId(null)
+              setPollingUnitId(null)
+            }}
+            disabled={!countryId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="State" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All States</SelectItem>
+              {states.map((state: any) => (
+                <SelectItem key={state.id} value={state.id}>
+                  {state.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Row 2: Senatorial Zone, Federal Constituency, LGA */}
+        <div className="grid gap-3 md:grid-cols-3">
+          <Select
+            value={senatorialZoneId || 'all'}
+            onValueChange={(value) => {
+              setSenatorialZoneId(value === 'all' ? null : value)
+              setLgaId(null)
+              setWardId(null)
+              setPollingUnitId(null)
+            }}
+            disabled={!stateId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Senatorial Zone" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Senatorial Zones</SelectItem>
+              {senatorialZones.map((zone: any) => (
+                <SelectItem key={zone.id} value={zone.id}>
+                  {zone.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={federalConstituencyId || 'all'}
+            onValueChange={(value) => {
+              setFederalConstituencyId(value === 'all' ? null : value)
+              setLgaId(null)
+              setWardId(null)
+              setPollingUnitId(null)
+            }}
+            disabled={!stateId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Federal Constituency" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Constituencies</SelectItem>
+              {federalConstituencies.map((fc: any) => (
+                <SelectItem key={fc.id} value={fc.id}>
+                  {fc.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={lgaId || 'all'}
+            onValueChange={(value) => {
+              setLgaId(value === 'all' ? null : value)
+              setWardId(null)
+              setPollingUnitId(null)
+            }}
+            disabled={!stateId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="LGA" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All LGAs</SelectItem>
+              {lgas.map((lga: any) => (
+                <SelectItem key={lga.id} value={lga.id}>
+                  {lga.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Row 3: Ward, Polling Unit */}
+        <div className="grid gap-3 md:grid-cols-2">
+          <Select
+            value={wardId || 'all'}
+            onValueChange={(value) => {
+              setWardId(value === 'all' ? null : value)
+              setPollingUnitId(null)
+            }}
+            disabled={!lgaId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Ward" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Wards</SelectItem>
+              {wards.map((ward: any) => (
+                <SelectItem key={ward.id} value={ward.id}>
+                  {ward.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={pollingUnitId || 'all'}
+            onValueChange={(value) => setPollingUnitId(value === 'all' ? null : value)}
+            disabled={!wardId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Polling Unit" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Polling Units</SelectItem>
+              {pollingUnits.map((pu: any) => (
+                <SelectItem key={pu.id} value={pu.id}>
+                  {pu.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
     </div>
   )
 
@@ -227,17 +602,19 @@ export default function AdminMembersPage() {
     >
       <Card>
         <CardContent className="pt-6">
-          {error && (
+          {!selectedOrgId ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>Please select an organization to view members</p>
+            </div>
+          ) : error ? (
             <div className="text-center py-8 text-destructive">
               <p>Error loading members: {error.message}</p>
             </div>
-          )}
-
-          {loading && !data ? (
+          ) : loading && !data ? (
             <div className="flex justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
-          ) : users.length === 0 ? (
+          ) : members.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <p>No members found</p>
             </div>
@@ -249,72 +626,137 @@ export default function AdminMembersPage() {
                     <tr className="border-b">
                       <th className="text-left p-3 font-semibold">Member</th>
                       <th className="text-left p-3 font-semibold">Email</th>
+                      <th className="text-left p-3 font-semibold">Location</th>
                       <th className="text-left p-3 font-semibold">Status</th>
                       <th className="text-left p-3 font-semibold">Role</th>
                       <th className="text-left p-3 font-semibold">Joined</th>
-                      <th className="text-left p-3 font-semibold">Actions</th>
+                      {isSupportGroupAdmin && <th className="text-left p-3 font-semibold">Actions</th>}
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((user: User) => (
-                      <tr key={user.id} className="border-b hover:bg-muted/50 transition-colors">
+                    {members.map((member: OrgMember) => (
+                      <tr key={member.id} className="border-b hover:bg-muted/50 transition-colors">
                         <td className="p-3">
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarImage src={user.avatar} alt={`${user.firstName} ${user.lastName}`} />
-                              <AvatarFallback>
-                                {`${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || '??'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium">
-                                {user.firstName} {user.lastName}
-                              </div>
-                              {user.displayName && (
-                                <div className="text-sm text-muted-foreground">
-                                  @{user.displayName}
+                          <Link href={`/admin/members/${member.userId}`} className="block">
+                            <div className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer">
+                              <Avatar>
+                                <AvatarImage src={member.user.avatar} alt={`${member.user.firstName} ${member.user.lastName}`} />
+                                <AvatarFallback>
+                                  {`${member.user.firstName?.[0] || ''}${member.user.lastName?.[0] || ''}`.toUpperCase() || '??'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="font-medium text-primary hover:underline">
+                                  {member.user.firstName} <span className="font-bold">{member.user.lastName}</span>
                                 </div>
-                              )}
+                                {member.user.displayName && (
+                                  <div className="text-sm text-muted-foreground">
+                                    @{member.user.displayName}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
+                          </Link>
                         </td>
                         <td className="p-3">
-                          <div className="flex items-center gap-2">
-                            {user.email}
-                            {user.isEmailVerified && (
-                              <Badge variant="success" className="text-xs">
-                                Verified
-                              </Badge>
+                          <div className="text-sm">{member.user.email}</div>
+                          {member.user.phoneNumber && (
+                            <div className="text-xs text-muted-foreground">{member.user.phoneNumber}</div>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <div className="text-sm">
+                            {member.user.state?.name && member.user.lga?.name ? (
+                              <>
+                                <div>{member.user.state.name}</div>
+                                <div className="text-xs text-muted-foreground">{member.user.lga.name}</div>
+                              </>
+                            ) : member.user.state?.name ? (
+                              <div>{member.user.state.name}</div>
+                            ) : member.user.lga?.name ? (
+                              <div>{member.user.lga.name}</div>
+                            ) : (
+                              <div className="text-muted-foreground">-</div>
                             )}
                           </div>
                         </td>
                         <td className="p-3">
-                          <Badge variant={user.isActive ? 'success' : 'destructive'}>
-                            {user.isActive ? 'Active' : 'Inactive'}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            {member.isBlocked ? (
+                              <Badge variant="destructive" className="w-fit">Blocked</Badge>
+                            ) : member.isActive ? (
+                              <Badge variant="default" className="w-fit bg-green-500">Active</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="w-fit">Inactive</Badge>
+                            )}
+                            {member.isVerified && (
+                              <Badge variant="outline" className="w-fit text-xs">Verified</Badge>
+                            )}
+                          </div>
                         </td>
                         <td className="p-3">
-                          {user.isPlatformAdmin ? (
-                            <Badge variant="default">Platform Admin</Badge>
-                          ) : (
-                            <Badge variant="secondary">User</Badge>
-                          )}
+                          <div className="flex flex-col gap-1">
+                            {member.isAdmin && (
+                              <Badge variant="default" className="w-fit">Admin</Badge>
+                            )}
+                            {member.isLeader && (
+                              <Badge variant="secondary" className="w-fit">
+                                <Crown className="h-3 w-3 mr-1" />
+                                Leader
+                              </Badge>
+                            )}
+                            {member.isChairman && (
+                              <Badge variant="secondary" className="w-fit">Chairman</Badge>
+                            )}
+                            {!member.isAdmin && !member.isLeader && !member.isChairman && (
+                              <Badge variant="outline" className="w-fit">Member</Badge>
+                            )}
+                          </div>
                         </td>
                         <td className="p-3 text-muted-foreground">
-                          {new Date(user.createdAt).toLocaleDateString('en-US', {
+                          {new Date(member.joinedAt).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'short',
                             day: 'numeric',
                           })}
                         </td>
-                        <td className="p-3">
-                          <Link href={`/admin/members/${user.id}`}>
-                            <Button variant="outline" size="sm" className="gap-2">
-                              <Eye className="h-4 w-4" />
-                              View Profile
-                            </Button>
-                          </Link>
-                        </td>
+                        {isSupportGroupAdmin && (
+                          <td className="p-3">
+                            <div className="flex gap-2">
+                              {member.isBlocked ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="gap-2"
+                                >
+                                  <UserCheck className="h-4 w-4" />
+                                  Unblock
+                                </Button>
+                              ) : (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2"
+                                  >
+                                    <UserX className="h-4 w-4" />
+                                    Block
+                                  </Button>
+                                  {!member.isLeader && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="gap-2"
+                                    >
+                                      <Crown className="h-4 w-4" />
+                                      Make Leader
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

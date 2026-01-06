@@ -12,6 +12,9 @@ export class PlatformSettingsEntity {
   publicOrgId?: string;
 
   @Field()
+  supportGroupDisplayName: string;
+
+  @Field()
   createdAt: Date;
 
   @Field()

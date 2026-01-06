@@ -230,6 +230,9 @@ export class OrganizationsService {
         ...(input.logo !== undefined && { logo: input.logo }),
         ...(input.banner !== undefined && { banner: input.banner }),
         ...(input.isActive !== undefined && { isActive: input.isActive }),
+        ...(input.isPrivate !== undefined && { isPrivate: input.isPrivate }),
+        ...(input.requiresConfirmation !== undefined && { requiresConfirmation: input.requiresConfirmation }),
+        ...(input.enabledLocationLevels !== undefined && { enabledLocationLevels: input.enabledLocationLevels }),
       },
       include: {
         parent: true,
@@ -486,6 +489,7 @@ export class OrganizationsService {
     // Validate location IDs based on leader level
     const locationData: any = {
       isLeader: true,
+      isChairman: input.isChairman || false,
       leaderLevel: input.level,
       leaderAssignedAt: new Date(),
       leaderAssignedBy: assignedBy,

@@ -21,6 +21,11 @@ export function PlatformAdminSidebarNav({ navigation, pathname, variant = 'deskt
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {navigation.map((section) => (
           <div key={section.id} className="mb-6">
+            {/* Section Header */}
+            <h3 className="px-3 mb-2 text-xs font-semibold text-indigo-300 uppercase tracking-wider">
+              {section.label}
+            </h3>
+
             {/* Section Items */}
             <div className="space-y-1">
               {section.items.map((item) => {
