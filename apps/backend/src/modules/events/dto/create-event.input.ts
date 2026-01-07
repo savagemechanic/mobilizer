@@ -53,4 +53,9 @@ export class CreateEventInput {
   @IsOptional()
   @IsString()
   orgId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  locationLevel?: string; // COUNTRY, STATE, LGA, WARD, POLLING_UNIT
 }
