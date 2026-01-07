@@ -627,17 +627,33 @@ model Event {
   creatorId      String
   orgId          String?
   isPublished    Boolean   @default(true)
+  locationLevel  String?   // COUNTRY, STATE, LGA, WARD, POLLING_UNIT
+  countryId      String?
+  stateId        String?
+  lgaId          String?
+  wardId         String?
+  pollingUnitId  String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   creator        User          @relation("EventCreator", fields: [creatorId], references: [id])
   organization   Organization? @relation(fields: [orgId], references: [id])
+  country        Country?      @relation(fields: [countryId], references: [id])
+  state          State?        @relation(fields: [stateId], references: [id])
+  lga            LGA?          @relation(fields: [lgaId], references: [id])
+  ward           Ward?         @relation(fields: [wardId], references: [id])
+  pollingUnit    PollingUnit?  @relation(fields: [pollingUnitId], references: [id])
   rsvps          EventRSVP[]
 
   @@index([creatorId])
   @@index([orgId])
   @@index([startTime])
   @@index([isPublished])
+  @@index([locationLevel])
+  @@index([stateId])
+  @@index([lgaId])
+  @@index([wardId])
+  @@index([pollingUnitId])
   @@map("events")
 }
 
@@ -956,6 +972,7 @@ model Country {
   users              User[]
   organizations      Organization[]
   posts              Post[]
+  events             Event[]
 
   @@map("countries")
 }
@@ -992,6 +1009,7 @@ model State {
   users                User[]
   organizations        Organization[]
   posts                Post[]
+  events               Event[]
   leaderMemberships    OrgMembership[] @relation("LeaderState")
 
   @@unique([countryId, code])
@@ -1048,6 +1066,7 @@ model LGA {
   users               User[]
   organizations       Organization[]
   posts               Post[]
+  events              Event[]
   leaderMemberships   OrgMembership[] @relation("LeaderLGA")
 
   @@unique([stateId, code])
@@ -1070,6 +1089,7 @@ model Ward {
   users         User[]
   organizations Organization[]
   posts         Post[]
+  events        Event[]
   leaderMemberships OrgMembership[] @relation("LeaderWard")
 
   @@unique([lgaId, code])
@@ -1088,6 +1108,7 @@ model PollingUnit {
   users         User[]
   organizations Organization[]
   posts         Post[]
+  events        Event[]
   leaderMemberships OrgMembership[] @relation("LeaderPollingUnit")
 
   @@unique([wardId, code])

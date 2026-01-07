@@ -102,6 +102,53 @@ export class EventsService {
   }
 
   async create(userId: string, input: CreateEventInput) {
+    // Get user's location to populate event location fields
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        countryId: true,
+        stateId: true,
+        lgaId: true,
+        wardId: true,
+        pollingUnitId: true,
+      },
+    });
+
+    // Build location data based on locationLevel
+    const locationData: any = {
+      locationLevel: input.locationLevel,
+    };
+
+    if (input.locationLevel && user) {
+      switch (input.locationLevel) {
+        case 'COUNTRY':
+          locationData.countryId = user.countryId;
+          break;
+        case 'STATE':
+          locationData.countryId = user.countryId;
+          locationData.stateId = user.stateId;
+          break;
+        case 'LGA':
+          locationData.countryId = user.countryId;
+          locationData.stateId = user.stateId;
+          locationData.lgaId = user.lgaId;
+          break;
+        case 'WARD':
+          locationData.countryId = user.countryId;
+          locationData.stateId = user.stateId;
+          locationData.lgaId = user.lgaId;
+          locationData.wardId = user.wardId;
+          break;
+        case 'POLLING_UNIT':
+          locationData.countryId = user.countryId;
+          locationData.stateId = user.stateId;
+          locationData.lgaId = user.lgaId;
+          locationData.wardId = user.wardId;
+          locationData.pollingUnitId = user.pollingUnitId;
+          break;
+      }
+    }
+
     return this.prisma.event.create({
       data: {
         creatorId: userId,
@@ -117,6 +164,7 @@ export class EventsService {
         banner: input.banner,
         maxAttendees: input.maxAttendees,
         orgId: input.orgId,
+        ...locationData,
       },
       include: {
         creator: {
