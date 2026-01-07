@@ -625,7 +625,9 @@ export default function AdminMembersPage() {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-3 font-semibold">Member</th>
-                      <th className="text-left p-3 font-semibold">Email</th>
+                      <th className="text-left p-3 font-semibold">Gender</th>
+                      <th className="text-left p-3 font-semibold">Phone</th>
+                      <th className="text-left p-3 font-semibold">Profession</th>
                       <th className="text-left p-3 font-semibold">Location</th>
                       <th className="text-left p-3 font-semibold">Status</th>
                       <th className="text-left p-3 font-semibold">Role</th>
@@ -659,10 +661,19 @@ export default function AdminMembersPage() {
                           </Link>
                         </td>
                         <td className="p-3">
-                          <div className="text-sm">{member.user.email}</div>
-                          {member.user.phoneNumber && (
-                            <div className="text-xs text-muted-foreground">{member.user.phoneNumber}</div>
-                          )}
+                          <div className="text-sm capitalize">
+                            {member.user.gender ? member.user.gender.toLowerCase().replace('_', ' ') : '-'}
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="text-sm">
+                            {member.user.phoneNumber || '-'}
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="text-sm">
+                            {member.user.profession || '-'}
+                          </div>
                         </td>
                         <td className="p-3">
                           <div className="text-sm">

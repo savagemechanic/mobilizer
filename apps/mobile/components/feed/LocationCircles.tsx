@@ -22,13 +22,14 @@ interface LocationCirclesProps {
   hideInfoIcon?: boolean; // Hide the info icon badge (for "All Organizations" view)
 }
 
+// Circle sizes based on level hierarchy
 const CIRCLE_SIZES: Record<OrgLevel, number> = {
   GLOBAL: 90,
   COUNTRY: 85,
-  STATE: 80,
+  STATE: 78,
   LGA: 70,
-  WARD: 60,
-  POLLING_UNIT: 50,
+  WARD: 62,
+  POLLING_UNIT: 54,
 };
 
 const LEVEL_LABELS: Record<OrgLevel, string> = {

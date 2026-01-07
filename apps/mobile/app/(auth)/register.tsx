@@ -24,6 +24,14 @@ import LocationPicker, { LocationValue } from '@/components/LocationPicker';
 import { PROFESSIONS } from '@/types';
 import { Picker } from '@react-native-picker/picker';
 
+// Gender options matching backend enum
+const GENDERS = [
+  { value: 'MALE', label: 'Male' },
+  { value: 'FEMALE', label: 'Female' },
+  { value: 'OTHER', label: 'Other' },
+  { value: 'PREFER_NOT_TO_SAY', label: 'Prefer not to say' },
+];
+
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -34,6 +42,7 @@ const registerSchema = z.object({
     .min(3, 'Username must be at least 3 characters')
     .max(30, 'Username must be at most 30 characters')
     .regex(/^[a-z0-9_]+$/, 'Only lowercase letters, numbers, and underscores'),
+  gender: z.string().min(1, 'Gender is required'),
   profession: z.string().min(1, 'Profession is required'),
   phoneNumber: z.string().min(10, 'Phone number must be at least 10 digits'),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -68,6 +77,7 @@ export default function RegisterScreen() {
       firstName: '',
       lastName: '',
       username: '',
+      gender: '',
       profession: '',
       phoneNumber: '',
     },
@@ -108,6 +118,7 @@ export default function RegisterScreen() {
         lastName: data.lastName,
         username: data.username.toLowerCase(),
         phoneNumber: data.phoneNumber,
+        gender: data.gender,
       };
 
       // Add optional fields
@@ -242,6 +253,33 @@ export default function RegisterScreen() {
                 <Text style={styles.errorText}>{errors.username.message}</Text>
               )}
               <Text style={styles.helperText}>3-30 characters, lowercase letters, numbers, and underscores only</Text>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Gender <Text style={styles.requiredAsterisk}>*</Text></Text>
+              <Controller
+                control={control}
+                name="gender"
+                render={({ field: { onChange, value } }) => (
+                  <View style={[styles.pickerContainer, errors.gender && styles.pickerError]}>
+                    <Picker
+                      selectedValue={value}
+                      onValueChange={onChange}
+                      enabled={!isLoading}
+                      style={styles.picker}
+                      dropdownIconColor="#000"
+                    >
+                      <Picker.Item label="Select your gender" value="" color="#666" style={styles.pickerItem} />
+                      {GENDERS.map((gender) => (
+                        <Picker.Item key={gender.value} label={gender.label} value={gender.value} color="#000" style={styles.pickerItem} />
+                      ))}
+                    </Picker>
+                  </View>
+                )}
+              />
+              {errors.gender && (
+                <Text style={styles.errorText}>{errors.gender.message}</Text>
+              )}
             </View>
 
             <View style={styles.inputContainer}>

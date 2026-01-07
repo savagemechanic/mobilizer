@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -74,12 +75,13 @@ export default function LocationInfoScreen() {
     level: string;
     name: string;
     orgName?: string;
+    orgLogo?: string;
     stateName?: string;
     lgaName?: string;
     wardName?: string;
   }>();
 
-  const { id, level, name, orgName, stateName, lgaName, wardName } = params;
+  const { id, level, name, orgName, orgLogo, stateName, lgaName, wardName } = params;
 
   // Build location hierarchy string (e.g., "in ABIA > Aba South LGA")
   const getLocationHierarchy = () => {
@@ -160,7 +162,15 @@ export default function LocationInfoScreen() {
             <Text style={styles.orgName}>{orgName}</Text>
           )}
           <View style={styles.locationIconContainer}>
-            <Ionicons name="location" size={40} color="#007AFF" />
+            {orgLogo ? (
+              <Image
+                source={{ uri: orgLogo }}
+                style={styles.orgLogoImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Ionicons name="location" size={40} color="#007AFF" />
+            )}
           </View>
           <Text style={styles.locationName}>{name?.toUpperCase()}</Text>
           <Text style={styles.locationType}>{LEVEL_LABELS[level || ''] || level}</Text>
@@ -336,6 +346,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    overflow: 'hidden',
+  },
+  orgLogoImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   locationName: {
     fontSize: 24,

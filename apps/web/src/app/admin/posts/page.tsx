@@ -12,6 +12,8 @@ import {
   GET_COUNTRIES,
   GET_GEOPOLITICAL_ZONES,
   GET_STATES,
+  GET_SENATORIAL_ZONES,
+  GET_FEDERAL_CONSTITUENCIES,
   GET_LGAS,
   GET_WARDS,
   GET_POLLING_UNITS
@@ -114,6 +116,8 @@ export default function AdminPostsPage() {
   const [selectedCountry, setSelectedCountry] = useState<string>('all')
   const [selectedGeoZone, setSelectedGeoZone] = useState<string>('all')
   const [selectedState, setSelectedState] = useState<string>('all')
+  const [selectedSenatorialZone, setSelectedSenatorialZone] = useState<string>('all')
+  const [selectedFederalConstituency, setSelectedFederalConstituency] = useState<string>('all')
   const [selectedLga, setSelectedLga] = useState<string>('all')
   const [selectedWard, setSelectedWard] = useState<string>('all')
   const [selectedPollingUnit, setSelectedPollingUnit] = useState<string>('all')
@@ -157,6 +161,20 @@ export default function AdminPostsPage() {
     skip: selectedCountry === 'all',
   })
   const states: Location[] = statesData?.states || []
+
+  // Fetch senatorial zones
+  const { data: senatorialZonesData } = useQuery(GET_SENATORIAL_ZONES, {
+    variables: { stateId: selectedState !== 'all' ? selectedState : undefined },
+    skip: selectedState === 'all',
+  })
+  const senatorialZones: Location[] = senatorialZonesData?.senatorialZones || []
+
+  // Fetch federal constituencies
+  const { data: federalConstituenciesData } = useQuery(GET_FEDERAL_CONSTITUENCIES, {
+    variables: { stateId: selectedState !== 'all' ? selectedState : undefined },
+    skip: selectedState === 'all',
+  })
+  const federalConstituencies: Location[] = federalConstituenciesData?.federalConstituencies || []
 
   // Fetch LGAs
   const { data: lgasData } = useQuery(GET_LGAS, {
@@ -205,6 +223,14 @@ export default function AdminPostsPage() {
 
     if (selectedState !== 'all') {
       filter.stateId = selectedState
+    }
+
+    if (selectedSenatorialZone !== 'all') {
+      filter.senatorialZoneId = selectedSenatorialZone
+    }
+
+    if (selectedFederalConstituency !== 'all') {
+      filter.federalConstituencyId = selectedFederalConstituency
     }
 
     if (selectedLga !== 'all') {
@@ -349,6 +375,8 @@ export default function AdminPostsPage() {
     setSelectedCountry('all')
     setSelectedGeoZone('all')
     setSelectedState('all')
+    setSelectedSenatorialZone('all')
+    setSelectedFederalConstituency('all')
     setSelectedLga('all')
     setSelectedWard('all')
     setSelectedPollingUnit('all')
@@ -363,6 +391,8 @@ export default function AdminPostsPage() {
     dateTo !== '' ||
     selectedCountry !== 'all' ||
     selectedState !== 'all' ||
+    selectedSenatorialZone !== 'all' ||
+    selectedFederalConstituency !== 'all' ||
     selectedLga !== 'all' ||
     selectedWard !== 'all' ||
     selectedPollingUnit !== 'all' ||
@@ -533,6 +563,8 @@ export default function AdminPostsPage() {
                       value={selectedState}
                       onValueChange={(value) => {
                         setSelectedState(value)
+                        setSelectedSenatorialZone('all')
+                        setSelectedFederalConstituency('all')
                         setSelectedLga('all')
                         setSelectedWard('all')
                         setSelectedPollingUnit('all')
@@ -547,6 +579,44 @@ export default function AdminPostsPage() {
                         {states.map((state) => (
                           <SelectItem key={state.id} value={state.id}>
                             {state.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Senatorial Zone */}
+                    <Select
+                      value={selectedSenatorialZone}
+                      onValueChange={setSelectedSenatorialZone}
+                      disabled={selectedState === 'all'}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Senatorial Zone" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Senatorial Zones</SelectItem>
+                        {senatorialZones.map((zone) => (
+                          <SelectItem key={zone.id} value={zone.id}>
+                            {zone.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Federal Constituency */}
+                    <Select
+                      value={selectedFederalConstituency}
+                      onValueChange={setSelectedFederalConstituency}
+                      disabled={selectedState === 'all'}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Federal Constituency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Constituencies</SelectItem>
+                        {federalConstituencies.map((constituency) => (
+                          <SelectItem key={constituency.id} value={constituency.id}>
+                            {constituency.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

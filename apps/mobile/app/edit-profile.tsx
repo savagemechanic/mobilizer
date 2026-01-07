@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Platform,
   Modal,
   FlatList,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -262,6 +263,10 @@ export default function EditProfileScreen() {
   };
 
   const userName = user?.displayName || `${user?.firstName} ${user?.lastName}`.trim() || 'User';
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Header height for KeyboardAvoidingView offset
+  const headerHeight = Platform.OS === 'ios' ? 44 + insets.top : 56;
 
   return (
     <View style={styles.container}>
@@ -280,7 +285,17 @@ export default function EditProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={headerHeight}
+      >
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <Avatar uri={newAvatarUri || user?.avatar} name={userName} size={100} />
@@ -412,8 +427,9 @@ export default function EditProfileScreen() {
           />
         </View>
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Profession Picker Modal */}
       <Modal
@@ -467,6 +483,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  keyboardAvoid: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',

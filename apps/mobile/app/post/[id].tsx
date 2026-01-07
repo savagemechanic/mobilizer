@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   Alert,
   Share,
+  Keyboard,
+  InputAccessoryView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
@@ -221,6 +223,17 @@ export default function PostDetailScreen() {
   // Handle comment button press - focus the input
   const handleCommentPress = () => {
     commentInputRef.current?.focus();
+    // Scroll to bottom when focusing comment input
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  };
+
+  // Handle input focus - scroll to make input visible
+  const handleInputFocus = () => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 300);
   };
 
   // Handle author press
@@ -284,11 +297,14 @@ export default function PostDetailScreen() {
   const authorName = getAuthorName(post.author);
   const timeAgo = formatTimeShort(new Date(post.createdAt));
 
+  // Header height (navigation bar) + status bar for iOS
+  const headerHeight = Platform.OS === 'ios' ? 44 + insets.top : 56;
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={headerHeight}
     >
       <Stack.Screen
         options={{
@@ -511,6 +527,7 @@ export default function PostDetailScreen() {
             placeholderTextColor="#999"
             value={commentText}
             onChangeText={setCommentText}
+            onFocus={handleInputFocus}
             multiline
             maxLength={500}
           />

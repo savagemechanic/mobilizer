@@ -399,7 +399,7 @@ export default function OrganizationDetailScreen() {
               <Text style={styles.quickStatValue}>
                 {new Date(organization.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
               </Text>
-              <Text style={styles.quickStatLabel}>Founded</Text>
+              <Text style={styles.quickStatLabel}>Onboarded</Text>
             </View>
           </View>
         </View>

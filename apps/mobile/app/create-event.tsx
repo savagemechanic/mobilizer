@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,14 +11,20 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useMutation } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CREATE_EVENT } from '@/lib/graphql/mutations/events';
 import { GET_EVENTS } from '@/lib/graphql/queries/events';
+import { GET_ORGANIZATIONS_FOR_SELECTOR } from '@/lib/graphql/queries/organizations';
+import { useAuthStore } from '@/store/auth';
+import { Avatar } from '@/components/ui';
+import { Organization, OrganizationsForSelector } from '@/types';
 
 const EVENT_TYPES = [
   { value: 'MEETING', label: 'Meeting' },
@@ -29,9 +35,24 @@ const EVENT_TYPES = [
   { value: 'OTHER', label: 'Other' },
 ];
 
+const LEVEL_LABELS: Record<string, string> = {
+  COUNTRY: 'Country',
+  STATE: 'State',
+  LGA: 'LGA',
+  WARD: 'Ward',
+  POLLING_UNIT: 'Polling Unit',
+};
+
+interface LocationOption {
+  level: 'COUNTRY' | 'STATE' | 'LGA' | 'WARD' | 'POLLING_UNIT';
+  label: string;
+  name: string;
+}
+
 export default function CreateEventScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuthStore();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -44,6 +65,12 @@ export default function CreateEventScreen() {
   const [virtualLink, setVirtualLink] = useState('');
   const [maxAttendees, setMaxAttendees] = useState('');
 
+  // Organization and location selection
+  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<LocationOption | null>(null);
+  const [showOrgPicker, setShowOrgPicker] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+
   // Date picker visibility
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -52,6 +79,77 @@ export default function CreateEventScreen() {
 
   // Type picker visibility
   const [showTypePicker, setShowTypePicker] = useState(false);
+
+  // Fetch user's organizations
+  const { data: selectorData, loading: orgsLoading } = useQuery<{
+    myOrganizationsForSelector: OrganizationsForSelector;
+  }>(GET_ORGANIZATIONS_FOR_SELECTOR, {
+    fetchPolicy: 'cache-and-network',
+  });
+
+  // Sort organizations by joinedAt (newest first)
+  const organizations = useMemo(() => {
+    const orgs = selectorData?.myOrganizationsForSelector?.organizations || [];
+    return [...orgs].sort((a, b) => {
+      if (!a.joinedAt && !b.joinedAt) return 0;
+      if (!a.joinedAt) return 1;
+      if (!b.joinedAt) return -1;
+      return new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime();
+    });
+  }, [selectorData?.myOrganizationsForSelector?.organizations]);
+
+  // Build location options from user's registered location
+  const locationOptions = useMemo(() => {
+    const options: LocationOption[] = [];
+    const loc = user?.location;
+
+    if (loc?.country) {
+      options.push({
+        level: 'COUNTRY',
+        label: `Country - ${loc.country.name}`,
+        name: loc.country.name,
+      });
+    } else if (loc?.state) {
+      options.push({
+        level: 'COUNTRY',
+        label: 'Country - Nigeria',
+        name: 'Nigeria',
+      });
+    }
+
+    if (loc?.state) {
+      options.push({
+        level: 'STATE',
+        label: `State - ${loc.state.name}`,
+        name: loc.state.name,
+      });
+    }
+    if (loc?.lga) {
+      options.push({
+        level: 'LGA',
+        label: `LGA - ${loc.lga.name}`,
+        name: loc.lga.name,
+      });
+    }
+    if (loc?.ward) {
+      options.push({
+        level: 'WARD',
+        label: `Ward - ${loc.ward.name}`,
+        name: loc.ward.name,
+      });
+    }
+    if (loc?.pollingUnit) {
+      options.push({
+        level: 'POLLING_UNIT',
+        label: `Polling Unit - ${loc.pollingUnit.name}`,
+        name: loc.pollingUnit.name,
+      });
+    }
+
+    return options;
+  }, [user?.location]);
+
+  const hasLocation = locationOptions.length > 0;
 
   const [createEvent, { loading }] = useMutation(CREATE_EVENT, {
     refetchQueries: [{ query: GET_EVENTS, variables: { limit: 20, offset: 0 } }],
@@ -72,6 +170,14 @@ export default function CreateEventScreen() {
     }
     if (!description.trim()) {
       Alert.alert('Error', 'Please enter a description');
+      return false;
+    }
+    if (!selectedOrg) {
+      Alert.alert('Error', 'Please select an organization');
+      return false;
+    }
+    if (!selectedLocation) {
+      Alert.alert('Error', 'Please select a location level');
       return false;
     }
     if (isVirtual && !virtualLink.trim()) {
@@ -101,6 +207,8 @@ export default function CreateEventScreen() {
             isVirtual,
             virtualLink: isVirtual ? virtualLink.trim() : undefined,
             maxAttendees: maxAttendees ? parseInt(maxAttendees, 10) : undefined,
+            orgId: selectedOrg?.id,
+            locationLevel: selectedLocation?.level,
           },
         },
       });
@@ -152,6 +260,16 @@ export default function CreateEventScreen() {
     }
   };
 
+  const handleSelectOrg = (org: Organization) => {
+    setSelectedOrg(org);
+    setShowOrgPicker(false);
+  };
+
+  const handleSelectLocation = (loc: LocationOption) => {
+    setSelectedLocation(loc);
+    setShowLocationPicker(false);
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -182,6 +300,51 @@ export default function CreateEventScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Organization Selector */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Organization *</Text>
+          <TouchableOpacity
+            style={styles.selectorButton}
+            onPress={() => setShowOrgPicker(true)}
+          >
+            {selectedOrg ? (
+              <View style={styles.selectorContent}>
+                <Avatar uri={selectedOrg.logo} name={selectedOrg.name} size={32} />
+                <Text style={styles.selectorText} numberOfLines={1}>
+                  {selectedOrg.name}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.selectorContent}>
+                <Ionicons name="business-outline" size={20} color="#007AFF" />
+                <Text style={[styles.selectorText, { color: '#007AFF' }]}>
+                  Select organization
+                </Text>
+              </View>
+            )}
+            <Ionicons name="chevron-down" size={20} color="#666" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Location Level Selector */}
+        {hasLocation && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Location Scope *</Text>
+            <TouchableOpacity
+              style={styles.selectorButton}
+              onPress={() => setShowLocationPicker(true)}
+            >
+              <View style={styles.selectorContent}>
+                <Ionicons name="location" size={20} color="#007AFF" />
+                <Text style={[styles.selectorText, !selectedLocation && { color: '#007AFF' }]}>
+                  {selectedLocation?.name || 'Select location level'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-down" size={20} color="#666" />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Title */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Title *</Text>
@@ -371,12 +534,12 @@ export default function CreateEventScreen() {
           </View>
         ) : (
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Location *</Text>
+            <Text style={styles.label}>Venue *</Text>
             <TextInput
               style={styles.input}
               value={location}
               onChangeText={setLocation}
-              placeholder="Event location"
+              placeholder="Event venue address"
               placeholderTextColor="#999"
             />
           </View>
@@ -411,6 +574,118 @@ export default function CreateEventScreen() {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Organization Picker Modal */}
+      <Modal
+        visible={showOrgPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowOrgPicker(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select Organization</Text>
+            <TouchableOpacity onPress={() => setShowOrgPicker(false)}>
+              <Ionicons name="close" size={28} color="#000" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalScrollView} keyboardShouldPersistTaps="handled">
+            {orgsLoading && organizations.length === 0 && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#007AFF" />
+                <Text style={styles.loadingText}>Loading organizations...</Text>
+              </View>
+            )}
+
+            {organizations.length > 0 ? (
+              <View style={styles.orgSection}>
+                {organizations.map((org) => (
+                  <TouchableOpacity
+                    key={org.id}
+                    style={[
+                      styles.orgItem,
+                      selectedOrg?.id === org.id && styles.orgItemSelected,
+                    ]}
+                    onPress={() => handleSelectOrg(org)}
+                    activeOpacity={0.6}
+                  >
+                    <View style={styles.orgItemContent}>
+                      <Avatar uri={org.logo} name={org.name} size={44} />
+                      <View style={styles.orgItemInfo}>
+                        <Text style={styles.orgItemName}>{org.name}</Text>
+                        <Text style={styles.orgItemDescription} numberOfLines={2}>
+                          {org.description || `${LEVEL_LABELS[org.level] || org.level} organization`}
+                        </Text>
+                      </View>
+                    </View>
+                    {selectedOrg?.id === org.id && (
+                      <Ionicons name="checkmark-circle" size={24} color="#007AFF" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No organizations found</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Join an organization to create events
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Location Level Picker Modal */}
+      <Modal
+        visible={showLocationPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowLocationPicker(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Location Scope</Text>
+            <TouchableOpacity onPress={() => setShowLocationPicker(false)}>
+              <Ionicons name="close" size={28} color="#000" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.locationHint}>
+            <Ionicons name="information-circle-outline" size={18} color="#666" />
+            <Text style={styles.locationHintText}>
+              Choose the geographic scope for your event visibility
+            </Text>
+          </View>
+          <FlatList
+            data={locationOptions}
+            keyExtractor={(item) => item.level}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.locationItem,
+                  selectedLocation?.level === item.level && styles.locationItemSelected,
+                ]}
+                onPress={() => handleSelectLocation(item)}
+              >
+                <View style={styles.locationItemContent}>
+                  <View style={styles.locationIcon}>
+                    <Ionicons name="location" size={20} color="#007AFF" />
+                  </View>
+                  <View style={styles.locationItemInfo}>
+                    <Text style={styles.locationItemLabel}>{item.name}</Text>
+                    <Text style={styles.locationItemLevel}>
+                      {LEVEL_LABELS[item.level]}
+                    </Text>
+                  </View>
+                </View>
+                {selectedLocation?.level === item.level && (
+                  <Ionicons name="checkmark" size={24} color="#007AFF" />
+                )}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -475,6 +750,28 @@ const styles = StyleSheet.create({
   textArea: {
     height: 120,
     paddingTop: 14,
+  },
+  selectorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  selectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+  },
+  selectorText: {
+    fontSize: 16,
+    color: '#000',
+    flex: 1,
   },
   selectButton: {
     flexDirection: 'row',
@@ -587,5 +884,139 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFF',
     marginLeft: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#FFF',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  orgSection: {
+    paddingTop: 12,
+  },
+  orgItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  orgItemSelected: {
+    backgroundColor: '#F0F8FF',
+  },
+  orgItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  orgItemInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  orgItemName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 2,
+  },
+  orgItemDescription: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+  },
+  emptyState: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  locationHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#F9F9F9',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  locationHintText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#666',
+    marginLeft: 8,
+  },
+  locationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  locationItemSelected: {
+    backgroundColor: '#F0F8FF',
+  },
+  locationItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  locationIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F0F8FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationItemInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  locationItemLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#000',
+    marginBottom: 2,
+  },
+  locationItemLevel: {
+    fontSize: 13,
+    color: '#666',
   },
 });

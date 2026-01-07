@@ -20,7 +20,19 @@ export const ME = gql`
           id
           name
         }
+        geopoliticalZone {
+          id
+          name
+        }
         state {
+          id
+          name
+        }
+        senatorialZone {
+          id
+          name
+        }
+        federalConstituency {
           id
           name
         }

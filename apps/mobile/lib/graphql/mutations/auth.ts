@@ -20,10 +20,26 @@ export const LOGIN = gql`
         isPlatformAdmin
         createdAt
         location {
+          country {
+            id
+            name
+          }
+          geopoliticalZone {
+            id
+            name
+          }
           state {
             id
             name
             code
+          }
+          senatorialZone {
+            id
+            name
+          }
+          federalConstituency {
+            id
+            name
           }
           lga {
             id
@@ -66,10 +82,26 @@ export const REGISTER = gql`
         isPlatformAdmin
         createdAt
         location {
+          country {
+            id
+            name
+          }
+          geopoliticalZone {
+            id
+            name
+          }
           state {
             id
             name
             code
+          }
+          senatorialZone {
+            id
+            name
+          }
+          federalConstituency {
+            id
+            name
           }
           lga {
             id
@@ -130,10 +162,26 @@ export const REFRESH_TOKEN = gql`
         isPlatformAdmin
         createdAt
         location {
+          country {
+            id
+            name
+          }
+          geopoliticalZone {
+            id
+            name
+          }
           state {
             id
             name
             code
+          }
+          senatorialZone {
+            id
+            name
+          }
+          federalConstituency {
+            id
+            name
           }
           lga {
             id
@@ -176,10 +224,26 @@ export const GOOGLE_LOGIN = gql`
         isPlatformAdmin
         createdAt
         location {
+          country {
+            id
+            name
+          }
+          geopoliticalZone {
+            id
+            name
+          }
           state {
             id
             name
             code
+          }
+          senatorialZone {
+            id
+            name
+          }
+          federalConstituency {
+            id
+            name
           }
           lga {
             id

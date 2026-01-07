@@ -25,7 +25,19 @@ export const GET_USER = gql`
           id
           name
         }
+        geopoliticalZone {
+          id
+          name
+        }
         state {
+          id
+          name
+        }
+        senatorialZone {
+          id
+          name
+        }
+        federalConstituency {
           id
           name
         }

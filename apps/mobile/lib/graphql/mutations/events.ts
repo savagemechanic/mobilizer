@@ -16,6 +16,7 @@ export interface CreateEventInput {
   banner?: string;
   orgId?: string;
   maxAttendees?: number;
+  locationLevel?: string;
 }
 
 /**

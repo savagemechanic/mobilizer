@@ -177,17 +177,15 @@ export default function LocationPicker({
   }, [onChange]);
 
   // Format code with auto-hyphens (XX-XX-XX-XXX format: 2-2-2-3 digits)
-  const formatLocationCode = (text: string): string => {
-    // Remove all non-digit characters
-    const cleaned = text.replace(/\D/g, '');
-
-    // Build formatted string with hyphens after positions 2, 4, 6
+  const formatLocationCode = (digits: string): string => {
+    // Build formatted string with hyphens after 2nd, 4th, and 6th digits
     let formatted = '';
-    for (let i = 0; i < cleaned.length && i < 9; i++) {
-      if (i === 2 || i === 4 || i === 6) {
+    for (let i = 0; i < digits.length && i < 9; i++) {
+      formatted += digits[i];
+      // Add hyphen immediately after 2nd, 4th, and 6th digit
+      if (i === 1 || i === 3 || i === 5) {
         formatted += '-';
       }
-      formatted += cleaned[i];
     }
 
     return formatted;
@@ -195,7 +193,26 @@ export default function LocationPicker({
 
   // Handle code input change with auto-formatting
   const handleCodeChange = (text: string) => {
-    const formatted = formatLocationCode(text);
+    // Get only digits from new and old values
+    const newDigits = text.replace(/\D/g, '');
+    const oldDigits = locationCode.replace(/\D/g, '');
+
+    let finalDigits = newDigits;
+
+    // Check if user tried to delete a hyphen (text is shorter but digits are same)
+    // This happens when cursor is right after a hyphen and user presses delete
+    if (text.length < locationCode.length && newDigits.length === oldDigits.length) {
+      // User deleted a hyphen - also remove the digit before it
+      // Find which hyphen was deleted by comparing positions
+      // Hyphens are at positions 2, 5, 8 in formatted string (after indices 1, 3, 5 of digits)
+      // If old was "12-34-" and new is "12-34", the trailing hyphen was deleted
+      // We should remove the last digit to get "12-3"
+      if (oldDigits.length > 0) {
+        finalDigits = oldDigits.slice(0, -1);
+      }
+    }
+
+    const formatted = formatLocationCode(finalDigits);
     setLocationCode(formatted);
     setCodeError(null);
     setIsCodeLookupSuccess(false);
@@ -203,12 +220,14 @@ export default function LocationPicker({
 
   // Handle code lookup
   const handleCodeLookup = () => {
-    Keyboard.dismiss();
     if (!locationCode.trim()) {
       setCodeError('Please enter a location code');
+      Keyboard.dismiss();
       return;
     }
+    // Run the lookup first, then dismiss keyboard
     lookupLocationByCode({ variables: { code: locationCode.trim() } });
+    Keyboard.dismiss();
   };
 
   // Handle state change

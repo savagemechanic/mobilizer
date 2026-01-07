@@ -67,28 +67,28 @@ export default function FeedScreen() {
   const [selectedType, setSelectedType] = useState<'org' | 'all' | 'public'>('all');
   const [hasInitializedFilter, setHasInitializedFilter] = useState(false);
 
-  // Get user's location circles (reversed order: Polling Unit first, then up to Country)
+  // Get user's location circles in order: Country > State > Geopolitical Zone > LGA > Federal Constituency > Senatorial Zone > Ward > Polling Unit
   const locationCircles = React.useMemo(() => {
     if (!user?.location) return [];
 
     const circles = [];
 
-    // Polling Unit level (first/leftmost)
-    if (user.location.pollingUnit) {
-      circles.push({
-        id: user.location.pollingUnit.id,
-        level: 'POLLING_UNIT' as OrgLevel,
-        name: user.location.pollingUnit.name,
-        hasNewPosts: false,
-      });
-    }
+    // Country level (first/leftmost) - default to Nigeria if country not set
+    const countryData = user.location.country || { id: 'NGA', name: 'Nigeria' };
+    circles.push({
+      id: countryData.id,
+      level: 'COUNTRY' as OrgLevel,
+      name: countryData.name,
+      code: 'NGA', // 3-letter country code
+      hasNewPosts: false,
+    });
 
-    // Ward level
-    if (user.location.ward) {
+    // State level
+    if (user.location.state) {
       circles.push({
-        id: user.location.ward.id,
-        level: 'WARD' as OrgLevel,
-        name: user.location.ward.name,
+        id: user.location.state.id,
+        level: 'STATE' as OrgLevel,
+        name: user.location.state.name,
         hasNewPosts: false,
       });
     }
@@ -103,27 +103,28 @@ export default function FeedScreen() {
       });
     }
 
-    // State level
-    if (user.location.state) {
+    // Ward level
+    if (user.location.ward) {
       circles.push({
-        id: user.location.state.id,
-        level: 'STATE' as OrgLevel,
-        name: user.location.state.name,
+        id: user.location.ward.id,
+        level: 'WARD' as OrgLevel,
+        name: user.location.ward.name,
         hasNewPosts: false,
       });
     }
 
-    // Country level (last/rightmost) - default to Nigeria if country not set
-    const countryData = user.location.country || { id: 'NGA', name: 'Nigeria' };
-    circles.push({
-      id: countryData.id,
-      level: 'COUNTRY' as OrgLevel,
-      name: countryData.name,
-      code: 'NGA', // 3-letter country code
-      hasNewPosts: false,
-    });
+    // Polling Unit level (last/rightmost)
+    if (user.location.pollingUnit) {
+      circles.push({
+        id: user.location.pollingUnit.id,
+        level: 'POLLING_UNIT' as OrgLevel,
+        name: user.location.pollingUnit.name,
+        hasNewPosts: false,
+      });
+    }
 
-    return circles;
+    // Reverse the order so Polling Unit is leftmost and Country is rightmost
+    return circles.reverse();
   }, [user]);
 
   // Auto-set to LGA location level on mount (default to LGA, not polling unit)
@@ -602,6 +603,7 @@ export default function FeedScreen() {
         level: circle.level,
         name: circle.name,
         orgName: selectedOrg?.name || '',
+        orgLogo: selectedOrg?.logo || '',
         ...hierarchyParams,
       },
     });
