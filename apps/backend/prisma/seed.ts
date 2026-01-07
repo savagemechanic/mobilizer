@@ -2,12 +2,14 @@ import { PrismaClient, Gender, OrgLevel } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { seedLocations } from './seeders/locations-batch';
 import { seedLocationMapping } from './seeders/location-mapping';
+import { reseedPollingUnits } from './seeders/reseed-polling-units';
 
 const prisma = new PrismaClient();
 
 // Check if we should seed full locations from SQL file
 const SEED_FULL_LOCATIONS = process.env.SEED_FULL_LOCATIONS === 'true' || process.argv.includes('--full-locations');
 const SEED_LOCATION_MAPPING = process.env.SEED_LOCATION_MAPPING === 'true' || process.argv.includes('--location-mapping');
+const RESEED_POLLING_UNITS = process.env.RESEED_POLLING_UNITS === 'true' || process.argv.includes('--reseed-polling-units');
 
 /**
  * Generate a unique 3-letter uppercase invite code
@@ -100,6 +102,12 @@ async function main() {
   if (SEED_LOCATION_MAPPING) {
     console.log('\n🗺️ Location mapping seeding enabled...\n');
     await seedLocationMapping();
+  }
+
+  // Reseed polling units with delimitation codes from pu_data
+  if (RESEED_POLLING_UNITS) {
+    console.log('\n📍 Reseeding polling units with delimitation codes...\n');
+    await reseedPollingUnits();
   }
 
   // Always create Nigeria for sample data and test users
@@ -849,6 +857,7 @@ async function main() {
   console.log('\nLocation Seeding:');
   console.log('- Run with --full-locations to seed all Nigerian locations');
   console.log('- Run with --location-mapping to seed zone mappings (requires full locations first)');
+  console.log('- Run with --reseed-polling-units to reseed polling units with delimitation codes');
   console.log('========================================\n');
 }
 

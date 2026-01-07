@@ -1098,11 +1098,12 @@ model Ward {
 }
 
 model PollingUnit {
-  id        String   @id @default(uuid())
-  wardId    String
-  name      String
-  code      String
-  createdAt DateTime @default(now())
+  id           String   @id @default(uuid())
+  wardId       String
+  name         String
+  code         String
+  delimitation String?  @unique // Full delimitation code e.g., "01-01-01-001" (State-LGA-Ward-PU)
+  createdAt    DateTime @default(now())
 
   ward          Ward           @relation(fields: [wardId], references: [id], onDelete: Cascade)
   users         User[]
@@ -1113,5 +1114,6 @@ model PollingUnit {
 
   @@unique([wardId, code])
   @@index([wardId])
+  @@index([delimitation])
   @@map("polling_units")
 }
